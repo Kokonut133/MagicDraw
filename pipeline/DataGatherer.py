@@ -1,5 +1,5 @@
 from google_images_download import google_images_download
-import os, sys, glob, cv2
+import os
 from PIL import Image
 
 __author__="cstur"
