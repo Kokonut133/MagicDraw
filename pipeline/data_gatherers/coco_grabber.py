@@ -6,25 +6,21 @@ import skimage.io as io
 from skimage.draw import polygon
 import settings
 
-def getCats():
-    # http://images.cocodataset.org/annotations/annotations_trainval2017.zip ; labels http://calvin.inf.ed.ac.uk/wp-content/uploads/data/cocostuffdataset/stuffthingmaps_trainval2017.zip
+def create_coco_dataset():
+    # images http://images.cocodataset.org/annotations/annotations_trainval2017.zip
+    # labels http://calvin.inf.ed.ac.uk/wp-content/uploads/data/cocostuffdataset/stuffthingmaps_trainval2017.zip
     parser = argparse.ArgumentParser()
-    parser.add_argument('--annotation_file', type=str, default=settings.root_dir+"resources/datasets/annotations/instances_train2017.json")
-    parser.add_argument('--input_label_dir', type=str, default=settings.root_dir+"resources/stuffthingmaps_trainval2017/datasets/train_label/")
-    parser.add_argument('--output_instance_dir', type=str, default="./train_inst/",
-                        help="Path to the output directory of instance maps")
-
+    parser.add_argument('--annotation_file', type=str, default=settings.root_dir+"resources/datasets/annotations_trainval2017/annotations/instances_train2017.json")
+    parser.add_argument('--input_label_dir', type=str, default=settings.root_dir+"resources/datasets/stuffthingmaps_trainval2017/train2017/")
+    parser.add_argument('--output_instance_dir', type=str, default=settings.root_dir+"resources/train_instances/")
     opt = parser.parse_args()
 
     print("annotation file at {}".format(opt.annotation_file))
     print("input label maps at {}".format(opt.input_label_dir))
     print("output dir at {}".format(opt.output_instance_dir))
 
-    # initialize COCO api for instance annotations
     coco = COCO(opt.annotation_file)
 
-
-    # display COCO categories and supercategories
     cats = coco.loadCats(coco.getCatIds())
     imgIds = coco.getImgIds(catIds=coco.getCatIds(cats))
     for ix, id in enumerate(imgIds):
