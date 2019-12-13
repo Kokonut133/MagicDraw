@@ -10,9 +10,7 @@ from keras.layers import Input, Concatenate
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Conv2D
 from keras.models import Model
-
 import settings
-
 
 class Pix2Pix:
     def __init__(self, image_shape):
@@ -99,7 +97,6 @@ class Pix2Pix:
 
     def train(self, epochs, data_dir, batch_size=1, sample_interval=50):
         os.makedirs(settings.root_dir + "resources/results/pix2pix/", exist_ok=True)
-
         start_time = datetime.datetime.now()
 
         valid = np.ones((batch_size,) + self.disc_patch)
@@ -142,7 +139,7 @@ class Pix2Pix:
                 img = self.load_img_as_np(img)
                 h, w, _ = img.shape
                 half_w = int(w/2)
-                
+
                 img_A = img[:, :half_w, :]
                 img_B = img[:, half_w:, :]
                 img_A = scipy.misc.imresize(img_A, self.img_shape)
@@ -158,3 +155,4 @@ class Pix2Pix:
 
     def load_img_as_np(self, path):
         return scipy.misc.imread(path, mode='RGB').astype(np.float)
+

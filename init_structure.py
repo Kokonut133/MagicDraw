@@ -52,3 +52,4 @@ if __name__ == '__main__':
         download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/edges2shoes.tar.gz")
         download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/facades.tar.gz")
         download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/maps.tar.gz")
+
