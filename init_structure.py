@@ -3,9 +3,11 @@ import os
 import tarfile
 import requests
 import zipfile
+import gc
 
 
 def download_and_extract(path, url):
+    gc.collect()
     response = requests.get(url, stream=True)
     if response.status_code == 200:
         temp = "/tmp/" + url.split("/")[-1]
@@ -48,8 +50,9 @@ if __name__ == '__main__':
 
     if get_pix2pix:
         download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/cityscapes.tar.gz")
-        download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/edges2handbags.tar.gz")
-        download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/edges2shoes.tar.gz")
         download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/facades.tar.gz")
         download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/maps.tar.gz")
+        download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/edges2handbags.tar.gz")
+        download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/edges2shoes.tar.gz")
+
 
