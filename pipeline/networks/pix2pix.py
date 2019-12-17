@@ -10,7 +10,7 @@ from keras.layers import Input, Concatenate
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Conv2D
 from keras.models import Model
-
+import settings
 
 class Pix2Pix:
     def __init__(self, image_shape):
@@ -96,6 +96,7 @@ class Pix2Pix:
         return Model([img_A, img_B], validity)
 
     def train(self, epochs, data_dir, batch_size=1, sample_interval=50):
+        os.makedirs(settings.root_dir + "resources/results/pix2pix/", exist_ok=True)
         start_time = datetime.datetime.now()
 
         valid = np.ones((batch_size,) + self.disc_patch)
@@ -103,12 +104,11 @@ class Pix2Pix:
 
         for epoch in range(epochs):
             for count, (imgs_A, imgs_B) in enumerate(self.load_batch(data_dir=data_dir, batch_size=batch_size)):
-                fake_A = self.generator.predict(imgs_B)
+                fake_As = self.generator.predict(imgs_B)
 
                 discriminator_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], valid)
-                discriminator_loss_fake = self.discriminator.train_on_batch([fake_A, imgs_B], fake)
+                discriminator_loss_fake = self.discriminator.train_on_batch([fake_As, imgs_B], fake)
                 discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
-
                 generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [valid, imgs_A])
 
                 elapsed_time = datetime.datetime.now() - start_time
@@ -116,27 +116,20 @@ class Pix2Pix:
                       (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
 
                 if count % sample_interval == 0:
-                    self.show_results(data_dir, epoch, count)
+                    gen_imgs = np.concatenate([imgs_B, imgs_A, fake_As])
 
-    def show_results(self, data_dir, epoch, count):
-        os.makedirs(settings.root_dir+"/resources/results/pix2pix/", exist_ok=True)
+                    titles = ["Condition", "Original", "Generated"]
+                    rows, cols = 3, 3
+                    fig, axs = plt.subplots(rows, cols)
+                    for i in range(rows):
+                        for j in range(cols):
+                            axs[i, j].imshow(gen_imgs[rows][cols])
+                            axs[i, j].set_title(titles[i])
+                            axs[i, j].axis("off")
+                    fig.savefig(settings.root_dir + "resources/results/pix2pix/"+str(epochs))
+                    plt.close()
 
-        imgs_A, imgs_B = self.load_batch(data_dir, epoch, count)
-        fake_As = self.generator.predict(imgs_B)
-        group = np.concatenate([imgs_A, imgs_B, fake_As])
-
-        titles = ["Condition", "Generated", "Original"]
-        rows, columns = 3, 3
-        fig, axs = plt.subplots(rows, columns)
-        for i in range(rows):
-            for j in range(columns):
-                axs[i, j].imshow(group[rows][columns])
-                axs[i, j].set_title(titles[i])
-                axs[i, j].axis("off")
-        fig.savefig("images/%s/%discriminator_%d.png" % (data_dir.split("/")[-1], epoch, count))
-        plt.close()
-
-    def load_batch(self, data_dir, batch_size=1):
+    def load_batch(self, data_dir, batch_size):
         paths = glob(data_dir+"*")
 
         for i in range(len(paths)-1):
@@ -149,8 +142,10 @@ class Pix2Pix:
 
                 img_A = img[:, :half_w, :]
                 img_B = img[:, half_w:, :]
+
                 img_A = scipy.misc.imresize(img_A, self.img_shape[0:2])
                 img_B = scipy.misc.imresize(img_B, self.img_shape[0:2])
+
 
                 imgs_A.append(img_A)
                 imgs_B.append(img_B)
