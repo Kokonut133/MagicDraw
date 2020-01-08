@@ -31,27 +31,28 @@ def download_and_extract(path, url):
 
 
 if __name__ == '__main__':
-    os.makedirs(settings.root_dir+"resources/", exist_ok=True)
-    os.makedirs(settings.root_dir+"resources/images/", exist_ok=True)
-    os.makedirs(settings.root_dir+"resources/datasets/", exist_ok=True)
+    os.makedirs(os.path.join(settings.res_dir), exist_ok=True)
+    os.makedirs(os.path.join(settings.img_dir), exist_ok=True)
+    os.makedirs(os.path.join(settings.dataset_dir), exist_ok=True)
 
     get_coco = False
     get_pix2pix = False
 
 
-    if "coco" not in os.listdir(settings.root_dir+"resources/datasets/"):
+    if "coco" not in os.listdir(settings.dataset_dir):
         get_coco = True if input("Get coco dataset? (y/n)") == "y" else False
-    if "pix2pix" not in os.listdir(settings.root_dir+"resources/datasets/"):
+    if "pix2pix" not in os.listdir(settings.dataset_dir):
         get_pix2pix = True if input("Get pix2pix dataset? (y/n)") == "y" else False
 
     if get_coco:
-        download_and_extract(path=settings.root_dir+"resources/datasets/coco/images/", url="http://images.cocodataset.org/annotations/annotations_trainval2017.zip")
-        download_and_extract(path=settings.root_dir+"resources/datasets/coco/labels/", url="http://calvin.inf.ed.ac.uk/wp-content/uploads/data/cocostuffdataset/stuffthingmaps_trainval2017.zip")
+        download_and_extract(path=os.path.join(settings.dataset_dir,"coco", "images"), url="http://images.cocodataset.org/annotations/annotations_trainval2017.zip")
+        download_and_extract(path=os.path.join(settings.dataset_dir,"coco","labels"), url="http://calvin.inf.ed.ac.uk/wp-content/uploads/data/cocostuffdataset/stuffthingmaps_trainval2017.zip")
 
     if get_pix2pix:
-        download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/cityscapes.tar.gz")
-        download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/facades.tar.gz")
-        download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/maps.tar.gz")
-        download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/edges2handbags.tar.gz")
-        download_and_extract(path=settings.root_dir+"resources/datasets/pix2pix/", url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/edges2shoes.tar.gz")
+        tmp_path = os.path.join(settings.dataset_dir, "pix2pix")
+        download_and_extract(path=tmp_path, url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/cityscapes.tar.gz")
+        download_and_extract(path=tmp_path, url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/facades.tar.gz")
+        download_and_extract(path=tmp_path, url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/maps.tar.gz")
+        download_and_extract(path=tmp_path, url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/edges2handbags.tar.gz")
+        download_and_extract(path=tmp_path, url="https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/edges2shoes.tar.gz")
 

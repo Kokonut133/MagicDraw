@@ -10,9 +10,9 @@ def create_coco_dataset():
     # images http://images.cocodataset.org/annotations/annotations_trainval2017.zip
     # labels http://calvin.inf.ed.ac.uk/wp-content/uploads/data/cocostuffdataset/stuffthingmaps_trainval2017.zip
     parser = argparse.ArgumentParser()
-    parser.add_argument('--annotation_file', type=str, default=settings.root_dir+"resources/datasets/annotations_trainval2017/annotations/instances_train2017.json")
-    parser.add_argument('--input_label_dir', type=str, default=settings.root_dir+"resources/datasets/stuffthingmaps_trainval2017/train2017/")
-    parser.add_argument('--output_instance_dir', type=str, default=settings.root_dir+"resources/train_instances/")
+    parser.add_argument('--annotation_file', type=str, default=os.path.join(settings.dataset_dir, "annotations_trainval2017", "annotations", "instances_train2017.json"))
+    parser.add_argument('--input_label_dir', type=str, default=os.path.join(settings.dataset_dir, "stuffthingmaps_trainval2017", "train2017"))
+    parser.add_argument('--output_instance_dir', type=str, default=os.path.join(settings.res_dir, "train_instances"))
     opt = parser.parse_args()
 
     print("annotation file at {}".format(opt.annotation_file))
