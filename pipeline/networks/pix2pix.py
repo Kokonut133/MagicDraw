@@ -12,6 +12,7 @@ from keras.layers.convolutional import UpSampling2D, Conv2D
 from keras.models import Model
 import settings
 
+
 class Pix2Pix:
     def __init__(self, image_shape):
         self.img_shape = image_shape
