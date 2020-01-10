@@ -96,8 +96,9 @@ class Pix2Pix:
 
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, data_dir, batch_size=1, sample_interval=50):
-        os.makedirs(settings.root_dir + "resources/results/pix2pix/", exist_ok=True)
+    def train(self, epochs, data_dir, batch_size=1, sample_interval=1):
+        result_dir = os.path.join(settings.result_dir, "pix2pix", datetime.datetime.today().strftime("%Y-%m-%d-%H:%M"))
+        os.makedirs(result_dir, exist_ok=True)
         start_time = datetime.datetime.now()
 
         valid = np.ones((batch_size,) + self.disc_patch)
@@ -127,11 +128,12 @@ class Pix2Pix:
                             axs[i, j].imshow(gen_imgs[rows][cols])
                             axs[i, j].set_title(titles[i])
                             axs[i, j].axis("off")
-                    fig.savefig(settings.root_dir + "resources/results/pix2pix/"+str(epochs))
+                    fig.savefig(os.path.join(result_dir, str(epochs)))
                     plt.close()
 
     def load_batch(self, data_dir, batch_size):
-        paths = glob(data_dir+"*")
+        paths = os.listdir(data_dir)
+        paths = [os.path.join(data_dir, i) for i in paths]
 
         for i in range(len(paths)-1):
             batch = paths[i:i+batch_size]
