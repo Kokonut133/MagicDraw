@@ -96,40 +96,41 @@ class Pix2Pix:
 
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, data_dir, batch_size=1, sample_interval=1):
-        result_dir = os.path.join(settings.result_dir, "pix2pix", datetime.datetime.today().strftime("%Y-%m-%d-%H:%M"))
+    def train(self, epochs, data_dir, batch_size=5, sample_interval=10):
+        result_dir = os.path.join(settings.result_dir, "pix2pix", datetime.datetime.today().strftime("%Y-%m-%d-%H:%M:%S"))
         os.makedirs(result_dir, exist_ok=True)
         start_time = datetime.datetime.now()
 
         valid = np.ones((batch_size,) + self.disc_patch)
         fake = np.zeros((batch_size,) + self.disc_patch)
 
+        data_generator = self.load_batch(data_dir=data_dir, batch_size=batch_size)
         for epoch in range(epochs):
-            for count, (imgs_A, imgs_B) in enumerate(self.load_batch(data_dir=data_dir, batch_size=batch_size)):
-                fake_As = self.generator.predict(imgs_B)
+            imgs_A, imgs_B = next(data_generator)
+            fake_As = self.generator.predict(imgs_B)
 
-                discriminator_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], valid)
-                discriminator_loss_fake = self.discriminator.train_on_batch([fake_As, imgs_B], fake)
-                discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
-                generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [valid, imgs_A])
+            discriminator_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], valid)
+            discriminator_loss_fake = self.discriminator.train_on_batch([fake_As, imgs_B], fake)
+            discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
+            generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [valid, imgs_A])
 
-                elapsed_time = datetime.datetime.now() - start_time
-                print("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s" %
-                      (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
+            elapsed_time = datetime.datetime.now() - start_time
+            print("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s" %
+                  (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
 
-                if count % sample_interval == 0:
-                    gen_imgs = np.concatenate([imgs_B, imgs_A, fake_As])
+            if epoch % sample_interval == 0:
+                gen_imgs = [imgs_B, imgs_A, fake_As]
 
-                    titles = ["Condition", "Original", "Generated"]
-                    rows, cols = 3, 3
-                    fig, axs = plt.subplots(rows, cols)
-                    for i in range(rows):
-                        for j in range(cols):
-                            axs[i, j].imshow(gen_imgs[rows][cols])
-                            axs[i, j].set_title(titles[i])
-                            axs[i, j].axis("off")
-                    fig.savefig(os.path.join(result_dir, str(epochs)))
-                    plt.close()
+                titles = ["Condition", "Original", "Generated"]
+                rows = 3
+                fig, axs = plt.subplots(nrows=rows, ncols=len(gen_imgs))
+                for i in range(rows):
+                    for j in range(len(gen_imgs)):
+                        axs[i, j].imshow(gen_imgs[j][i])
+                        axs[i, j].set_title(titles[j])
+                        axs[i, j].axis("off")
+                fig.savefig(os.path.join(result_dir, str(epoch)))
+                plt.close()
 
     def load_batch(self, data_dir, batch_size):
         paths = os.listdir(data_dir)
