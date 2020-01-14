@@ -98,7 +98,7 @@ class Pix2Pix:
         return Model([img_A, img_B], validity)
 
     def train(self, epochs, data_dir, batch_size=5, sample_interval=10):
-        result_dir = os.path.join(settings.result_dir, "pix2pix", datetime.datetime.today().strftime("%Y-%m-%d-%H:%M:%S"))
+        result_dir = os.path.join(settings.result_dir, "pix2pix")#, str(datetime.datetime.today().strftime("%Y-%m-%d-%H:%M:%S")))
         os.makedirs(result_dir, exist_ok=True)
         logging.basicConfig(filename=os.path.join(result_dir, "log.txt"), level=logging.INFO, filemode="w")
 
@@ -127,13 +127,16 @@ class Pix2Pix:
                 gen_imgs = [imgs_B, imgs_A, fake_As]
 
                 titles = ["Condition", "Original", "Generated"]
-                rows = 3
+                if batch_size < 3:
+                    rows = 3
+                else:
+                    rows = batch_size
                 fig, axs = plt.subplots(nrows=rows, ncols=len(gen_imgs))
                 for i in range(rows):
                     for j in range(len(gen_imgs)):
-                        axs[i, j].imshow(gen_imgs[j][i])
-                        axs[i, j].set_title(titles[j])
-                        axs[i, j].axis("off")
+                        axs[i][j].imshow(gen_imgs[j][i])
+                        axs[i][j].set_title(titles[j])
+                        axs[i][j].axis("off")
                 fig.savefig(os.path.join(result_dir, str(epoch)))
                 plt.close()
 

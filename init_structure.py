@@ -31,10 +31,10 @@ def download_and_extract(path, url):
 
 
 if __name__ == '__main__':
-    os.makedirs(os.path.join(settings.res_dir), exist_ok=True)
-    os.makedirs(os.path.join(settings.img_dir), exist_ok=True)
-    os.makedirs(os.path.join(settings.dataset_dir), exist_ok=True)
-    os.makedirs(os.path.join(settings.result_dir), exist_ok=True)
+    os.makedirs(settings.res_dir, exist_ok=True)
+    os.makedirs(settings.img_dir, exist_ok=True)
+    os.makedirs(settings.dataset_dir, exist_ok=True)
+    os.makedirs(settings.result_dir, exist_ok=True)
 
     get_coco = False
     get_pix2pix = False
