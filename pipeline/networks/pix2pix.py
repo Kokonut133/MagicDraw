@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 from glob import glob
 import settings
@@ -99,13 +100,15 @@ class Pix2Pix:
     def train(self, epochs, data_dir, batch_size=5, sample_interval=10):
         result_dir = os.path.join(settings.result_dir, "pix2pix", datetime.datetime.today().strftime("%Y-%m-%d-%H:%M:%S"))
         os.makedirs(result_dir, exist_ok=True)
-        start_time = datetime.datetime.now()
+        logging.basicConfig(filename=os.path.join(result_dir, "log.txt"), level=logging.INFO, filemode="w")
 
         valid = np.ones((batch_size,) + self.disc_patch)
         fake = np.zeros((batch_size,) + self.disc_patch)
 
         data_generator = self.load_batch(data_dir=data_dir, batch_size=batch_size)
         for epoch in range(epochs):
+            start_time = datetime.datetime.now()
+
             imgs_A, imgs_B = next(data_generator)
             fake_As = self.generator.predict(imgs_B)
 
@@ -114,7 +117,9 @@ class Pix2Pix:
             discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
             generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [valid, imgs_A])
 
-            elapsed_time = datetime.datetime.now() - start_time
+            elapsed_time = str(datetime.datetime.now() - start_time)
+            logging.info("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s",
+                         (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
             print("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s" %
                   (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
 
