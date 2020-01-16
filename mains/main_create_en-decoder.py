@@ -7,4 +7,4 @@ if __name__ == '__main__':
     data_dir = os.path.join(settings.dataset_dir, "pix2pix", "cityscapes", "train")
 
     pix2pix = Pix2Pix(image_shape=(256, 256, 3))
-    pix2pix.train(epochs=1000, batch_size=3, sample_interval=50, data_dir=data_dir)
+    pix2pix.train(epochs=1000, batch_size=3, sample_interval=5, data_dir=data_dir)

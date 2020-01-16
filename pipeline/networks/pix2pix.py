@@ -2,10 +2,14 @@ import datetime
 import logging
 import os
 from glob import glob
+
+import tensorflow
+
 import settings
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
+import keras
 from keras.layers import BatchNormalization
 from keras.layers import Input, Concatenate
 from keras.layers.advanced_activations import LeakyReLU
@@ -13,26 +17,30 @@ from keras.layers.convolutional import UpSampling2D, Conv2D
 from keras.models import Model
 import settings
 
+# discriminator outputs 1 if its a real pair
+# img A is used to produce img B/fake B
 
 class Pix2Pix:
     def __init__(self, image_shape):
+        logging.getLogger("matplotlib").setLevel(logging.ERROR)
+
         self.img_shape = image_shape
         if len(self.img_shape) != 3:
             print("Image should be w, h, c but is " + str(self.img_shape))
 
-        patchsize = int(self.img_shape[0]/16)   # 16 parts of the image are evaluated if real
-        self.disc_patch = (patchsize, patchsize, 1)
-
         self.discriminator = self.build_discriminator(input_shape=self.img_shape)
+        self.discriminator.trainable = False
         self.discriminator.compile(loss="mse", optimizer="adam", metrics=["accuracy"])
         self.generator = self.build_generator(input_shape=self.img_shape)
 
         img_A = Input(shape=self.img_shape)
         img_B = Input(shape=self.img_shape)
-        fake_A = self.generator(img_B)
+        self.disc_patch = (16, 16, 1)
 
-        valid = self.discriminator([fake_A, img_B])
-        self.combined = Model(inputs=[img_A, img_B], outputs=[valid, fake_A])
+        fake_B = self.generator(img_A)
+        is_real = self.discriminator([fake_B, img_A])
+
+        self.combined = Model(inputs=[img_A, img_B], outputs=[is_real, fake_B])
         self.combined.compile(loss=["mse", "mae"], loss_weights=[1, 100], optimizer="adam")
 
     def build_generator(self, input_shape):
@@ -98,11 +106,15 @@ class Pix2Pix:
         return Model([img_A, img_B], validity)
 
     def train(self, epochs, data_dir, batch_size=5, sample_interval=10):
-        result_dir = os.path.join(settings.result_dir, "pix2pix")#, str(datetime.datetime.today().strftime("%Y-%m-%d-%H:%M:%S")))
+        result_dir = os.path.join(settings.result_dir, "pix2pix", str(datetime.datetime.today().strftime("%Y-%m-%d-%H-%M-%S")))
         os.makedirs(result_dir, exist_ok=True)
+
+        checkpoint_path = os.path.join(result_dir, "checkpoints")
+        os.makedirs(checkpoint_path, exist_ok=True)
+
         logging.basicConfig(filename=os.path.join(result_dir, "log.txt"), level=logging.INFO, filemode="w")
 
-        valid = np.ones((batch_size,) + self.disc_patch)
+        real = np.ones((batch_size,) + self.disc_patch)
         fake = np.zeros((batch_size,) + self.disc_patch)
 
         data_generator = self.load_batch(data_dir=data_dir, batch_size=batch_size)
@@ -110,21 +122,21 @@ class Pix2Pix:
             start_time = datetime.datetime.now()
 
             imgs_A, imgs_B = next(data_generator)
-            fake_As = self.generator.predict(imgs_B)
+            fake_Bs = self.generator.predict(imgs_A)
 
-            discriminator_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], valid)
-            discriminator_loss_fake = self.discriminator.train_on_batch([fake_As, imgs_B], fake)
+            discriminator_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], real)
+            discriminator_loss_fake = self.discriminator.train_on_batch([imgs_A, fake_Bs], fake)
             discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
-            generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [valid, imgs_A])
+            generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
 
             elapsed_time = str(datetime.datetime.now() - start_time)
             logging.info("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s",
-                         (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
+                         epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time)
             print("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s" %
                   (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
 
             if epoch % sample_interval == 0:
-                gen_imgs = [imgs_B, imgs_A, fake_As]
+                gen_imgs = [imgs_B, imgs_A, fake_Bs]
 
                 titles = ["Condition", "Original", "Generated"]
                 if batch_size < 3:
@@ -139,6 +151,9 @@ class Pix2Pix:
                         axs[i][j].axis("off")
                 fig.savefig(os.path.join(result_dir, str(epoch)))
                 plt.close()
+
+            if epoch % 100 == 0:
+                self.combined.save(checkpoint_path)
 
     def load_batch(self, data_dir, batch_size):
         paths = os.listdir(data_dir)
