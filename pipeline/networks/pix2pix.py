@@ -1,9 +1,11 @@
 import datetime
 import logging
 import os
+import re
 from glob import glob
 
-import tensorflow
+import tensorflow as tf
+from keras_contrib.callbacks import tensorboard
 
 import settings
 import matplotlib.pyplot as plt
@@ -105,20 +107,38 @@ class Pix2Pix:
 
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, data_dir, batch_size=5, sample_interval=10):
+    def train(self, epochs, data_dir, load_last_chkpt=False, batch_size=5, sample_interval=10):
         result_dir = os.path.join(settings.result_dir, "pix2pix", str(datetime.datetime.today().strftime("%Y-%m-%d-%H-%M-%S")))
         os.makedirs(result_dir, exist_ok=True)
-
         checkpoint_path = os.path.join(result_dir, "checkpoints")
         os.makedirs(checkpoint_path, exist_ok=True)
-
         logging.basicConfig(filename=os.path.join(result_dir, "log.txt"), level=logging.INFO, filemode="w")
+
+        start_iter = 0
+
+        if load_last_chkpt:
+            list_of_folders = os.listdir(os.path.join(settings.result_dir, "pix2pix"))
+            potential_folders = []
+            for folder in list_of_folders:  # remove with no checkpoints
+                if len(os.listdir(os.path.join(settings.result_dir, "pix2pix", folder, "checkpoints"))) != 0:
+                    potential_folders.append(folder)
+            if not potential_folders:
+                print("No previous weights found!")
+            latest_folder = max([datetime.datetime.strptime(i, "%Y-%m-%d-%H-%M-%S") for i in potential_folders])
+            goal_folder = os.path.join(settings.result_dir, "pix2pix", latest_folder.strftime("%Y-%m-%d-%H-%M-%S"), "checkpoints")
+            discriminator_path = max([os.path.join(goal_folder, d) for d in os.listdir(goal_folder) if "discriminator" in d], key=os.path.getctime)
+            generator_path = max([os.path.join(goal_folder, d) for d in os.listdir(goal_folder) if "generator" in d], key=os.path.getctime)
+            self.discriminator.load_weights(discriminator_path)
+            self.generator.load_weights(generator_path)
+            start_iter = int(re.sub('[^0-9]', '', discriminator_path[-5:]))
+            print("Loaded weights " + os.path.basename(discriminator_path) + " and " + os.path.basename(generator_path) +
+                  " from " + os.path.basename(os.path.dirname(goal_folder)))
 
         real = np.ones((batch_size,) + self.disc_patch)
         fake = np.zeros((batch_size,) + self.disc_patch)
 
         data_generator = self.load_batch(data_dir=data_dir, batch_size=batch_size)
-        for epoch in range(epochs):
+        for epoch in range(start_iter, epochs):
             start_time = datetime.datetime.now()
 
             imgs_A, imgs_B = next(data_generator)
@@ -134,6 +154,10 @@ class Pix2Pix:
                          epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time)
             print("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s" %
                   (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
+
+            if epoch % 100 == 0:
+                self.discriminator.save(os.path.join(checkpoint_path, "discriminator"+str(epoch)))
+                self.generator.save(os.path.join(checkpoint_path, "generator"+str(epoch)))
 
             if epoch % sample_interval == 0:
                 gen_imgs = [imgs_B, imgs_A, fake_Bs]
@@ -151,9 +175,6 @@ class Pix2Pix:
                         axs[i][j].axis("off")
                 fig.savefig(os.path.join(result_dir, str(epoch)))
                 plt.close()
-
-            if epoch % 100 == 0:
-                self.combined.save(checkpoint_path)
 
     def load_batch(self, data_dir, batch_size):
         paths = os.listdir(data_dir)
@@ -183,4 +204,4 @@ class Pix2Pix:
             yield imgs_A, imgs_B
 
     def load_img_as_np(self, path):
-        return scipy.misc.imread(path, mode='RGB').astype(np.float)
+        return scipy.misc.imread(path, mode="RGB").astype(np.float)
