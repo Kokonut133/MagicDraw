@@ -10,7 +10,7 @@ from keras_contrib.callbacks import tensorboard
 import settings
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
+import scipy.misc
 import keras
 from keras.layers import BatchNormalization
 from keras.layers import Input, Concatenate
@@ -23,7 +23,7 @@ import settings
 # img A is used to produce img B/fake B
 
 class Pix2Pix:
-    def __init__(self, image_shape):
+    def __init__(self, image_shape, light_w=False):
         logging.getLogger("matplotlib").setLevel(logging.ERROR)
 
         self.img_shape = image_shape
@@ -33,7 +33,10 @@ class Pix2Pix:
         self.discriminator = self.build_discriminator(input_shape=self.img_shape)
         self.discriminator.trainable = False
         self.discriminator.compile(loss="mse", optimizer="adam", metrics=["accuracy"])
-        self.generator = self.build_generator(input_shape=self.img_shape)
+        if light_w:
+            self.generator = self.build_lightw_generator(input_shape=self.img_shape)
+        else:
+            self.generator = self.build_generator(input_shape=self.img_shape)
 
         img_A = Input(shape=self.img_shape)
         img_B = Input(shape=self.img_shape)
@@ -84,6 +87,39 @@ class Pix2Pix:
 
         return Model(input, output_img)
 
+    def build_lightw_generator(self, input_shape):
+        def conv2d(input, filters, batch_norm, k_size=4):
+            d = Conv2D(filters, kernel_size=k_size, strides=2, padding="same")(input)
+            d = LeakyReLU(alpha=0.2)(d)
+            if batch_norm:
+                d = BatchNormalization(momentum=0.8)(d)
+            return d
+
+        def deconv2d(input, filters, skip_input, k_size=4):
+            u = UpSampling2D(size=2)(input)
+            u = Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u)
+            u = BatchNormalization(momentum=0.8)(u)
+            u = Concatenate()([u, skip_input])
+            return u
+
+        input = Input(shape=input_shape)
+        n = input_shape[0]
+
+        d1 = conv2d(input=input, filters=n, batch_norm=False)
+        d2 = conv2d(input=d1, filters=n*2, batch_norm=True)
+        d3 = conv2d(input=d2, filters=n*4, batch_norm=True)
+
+        d7 = conv2d(input=d3, filters=n*8, batch_norm=True)
+
+        u4 = deconv2d(input=d7, filters=n*4, skip_input=d3)
+        u5 = deconv2d(input=u4, filters=n*2, skip_input=d2)
+        u6 = deconv2d(input=u5, filters=n, skip_input=d1)
+
+        u7 = UpSampling2D(size=2)(u6)
+        output_img = Conv2D(input_shape[2], kernel_size=4, strides=1, padding="same", activation="tanh")(u7)
+
+        return Model(input, output_img)
+
     def build_discriminator(self, input_shape):
         def discriminator_layer(input, filters, batch_norm, f_size=4):
             d = Conv2D(filters, kernel_size=f_size, strides=2, padding="same")(input)
@@ -107,7 +143,7 @@ class Pix2Pix:
 
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, data_dir, load_last_chkpt=False, batch_size=5, sample_interval=10):
+    def train(self, epochs, data_dir, load_last_chkpt=False, batch_size=5, sample_interval=1000, snapshot_interval=10000):
         result_dir = os.path.join(settings.result_dir, "pix2pix", str(datetime.datetime.today().strftime("%Y-%m-%d-%H-%M-%S")))
         os.makedirs(result_dir, exist_ok=True)
         checkpoint_path = os.path.join(result_dir, "checkpoints")
@@ -155,26 +191,36 @@ class Pix2Pix:
             print("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s" %
                   (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
 
-            if epoch % 100 == 0:
+            if epoch % snapshot_interval == 0:
                 self.discriminator.save(os.path.join(checkpoint_path, "discriminator"+str(epoch)))
                 self.generator.save(os.path.join(checkpoint_path, "generator"+str(epoch)))
 
+            # visualization
             if epoch % sample_interval == 0:
                 gen_imgs = [imgs_B, imgs_A, fake_Bs]
 
                 titles = ["Condition", "Original", "Generated"]
-                if batch_size < 3:
-                    rows = 3
-                else:
-                    rows = batch_size
-                fig, axs = plt.subplots(nrows=rows, ncols=len(gen_imgs))
-                for i in range(rows):
+                if batch_size <= 1:
+                    fig, ax = plt.subplots(nrows=1, ncols=len(gen_imgs))
                     for j in range(len(gen_imgs)):
-                        axs[i][j].imshow(gen_imgs[j][i])
-                        axs[i][j].set_title(titles[j])
-                        axs[i][j].axis("off")
-                fig.savefig(os.path.join(result_dir, str(epoch)))
-                plt.close()
+                        ax[j].imshow(gen_imgs[j][0])
+                        ax[j].set_title(titles[j])
+                        ax[j].axis("off")
+                    fig.savefig(os.path.join(result_dir, str(epoch)))
+                    plt.close()
+                else:
+                    if batch_size > 3:
+                        rows = 3
+                    else:
+                        rows = batch_size
+                    fig, axs = plt.subplots(nrows=rows, ncols=len(gen_imgs))
+                    for i in range(rows):
+                        for j in range(len(gen_imgs)):
+                            axs[i][j].imshow(gen_imgs[j][i])
+                            axs[i][j].set_title(titles[j])
+                            axs[i][j].axis("off")
+                    fig.savefig(os.path.join(result_dir, str(epoch)))
+                    plt.close()
 
     def load_batch(self, data_dir, batch_size):
         paths = os.listdir(data_dir)

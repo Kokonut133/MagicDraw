@@ -4,7 +4,8 @@ import settings
 import os
 
 if __name__ == '__main__':
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'   # to train on cpu
     data_dir = os.path.join(settings.dataset_dir, "pix2pix", "cityscapes", "train")
 
-    pix2pix = Pix2Pix(image_shape=(256, 256, 3))
-    pix2pix.train(epochs=1000, batch_size=3, sample_interval=5, data_dir=data_dir, load_last_chkpt=True)
+    pix2pix = Pix2Pix(image_shape=(256, 256, 3), light_w=True)
+    pix2pix.train(epochs=100000, batch_size=1, sample_interval=1000, snapshot_interval=10000, data_dir=data_dir, load_last_chkpt=False)
