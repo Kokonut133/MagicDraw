@@ -5,7 +5,7 @@ import os
 
 if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'   # to train on cpu
-    data_dir = os.path.join(settings.dataset_dir, "pix2pix", "cityscapes", "train")
+    data_dir = os.path.join(settings.dataset_dir, "pix2pix", "maps", "train")
 
     pix2pix = Pix2Pix(image_shape=(256, 256, 3), light_w=True)
-    pix2pix.train(epochs=100000, batch_size=1, sample_interval=1000, snapshot_interval=10000, data_dir=data_dir, load_last_chkpt=False)
+    pix2pix.train(epochs=100000, batch_size=2, sample_interval=100, data_dir=data_dir, load_last_chkpt=False) # batch size 2 seems to fit still on GPU

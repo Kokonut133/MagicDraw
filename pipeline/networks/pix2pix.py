@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from glob import glob
+from pathlib import Path
 
 import tensorflow as tf
 from keras_contrib.callbacks import tensorboard
@@ -143,14 +144,15 @@ class Pix2Pix:
 
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, data_dir, load_last_chkpt=False, batch_size=5, sample_interval=1000, snapshot_interval=10000):
-        result_dir = os.path.join(settings.result_dir, "pix2pix", str(datetime.datetime.today().strftime("%Y-%m-%d-%H-%M-%S")))
+    def train(self, epochs, data_dir, load_last_chkpt=False, batch_size=5, sample_interval=1000):
+        result_dir = os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem, str(datetime.datetime.today().strftime("%Y-%m-%d-%H-%M-%S")))
         os.makedirs(result_dir, exist_ok=True)
         checkpoint_path = os.path.join(result_dir, "checkpoints")
         os.makedirs(checkpoint_path, exist_ok=True)
         logging.basicConfig(filename=os.path.join(result_dir, "log.txt"), level=logging.INFO, filemode="w")
 
         start_iter = 0
+        snapshot_count = 1
 
         if load_last_chkpt:
             list_of_folders = os.listdir(os.path.join(settings.result_dir, "pix2pix"))
@@ -174,8 +176,8 @@ class Pix2Pix:
         fake = np.zeros((batch_size,) + self.disc_patch)
 
         data_generator = self.load_batch(data_dir=data_dir, batch_size=batch_size)
+        start_time = datetime.datetime.now()
         for epoch in range(start_iter, epochs):
-            start_time = datetime.datetime.now()
 
             imgs_A, imgs_B = next(data_generator)
             fake_Bs = self.generator.predict(imgs_A)
@@ -185,18 +187,21 @@ class Pix2Pix:
             discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
             generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
 
-            elapsed_time = str(datetime.datetime.now() - start_time)
-            logging.info("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s",
-                         epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time)
-            print("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s" %
-                  (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], elapsed_time))
-
-            if epoch % snapshot_interval == 0:
-                self.discriminator.save(os.path.join(checkpoint_path, "discriminator"+str(epoch)))
-                self.generator.save(os.path.join(checkpoint_path, "generator"+str(epoch)))
-
             # visualization
             if epoch % sample_interval == 0:
+                elapsed_time = datetime.datetime.now() - start_time
+
+                if elapsed_time > datetime.timedelta(hours=0, minutes=30)*snapshot_count:
+                    snapshot_count += 1
+                    self.discriminator.save(os.path.join(checkpoint_path, "discriminator" + str(epoch)))
+                    self.generator.save(os.path.join(checkpoint_path, "generator" + str(epoch)))
+                    print("Saved model at " + str(epoch) + " epochs model.")
+
+                logging.info("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s",
+                             epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], str(elapsed_time))
+                print("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s" %
+                      (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], str(elapsed_time)))
+
                 gen_imgs = [imgs_B, imgs_A, fake_Bs]
 
                 titles = ["Condition", "Original", "Generated"]
@@ -226,7 +231,7 @@ class Pix2Pix:
         paths = os.listdir(data_dir)
         paths = [os.path.join(data_dir, i) for i in paths]
 
-        for i in range(len(paths)-1):
+        for i in range(0, len(paths)-1, batch_size):
             batch = paths[i:i+batch_size]
             imgs_A, imgs_B = [], []
             for img in batch:
