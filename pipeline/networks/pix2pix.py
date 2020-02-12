@@ -9,6 +9,7 @@ from pathlib import Path
 
 import tensorflow as tf
 from keras_contrib.callbacks import tensorboard
+from tifffile import tifffile
 
 import settings
 import matplotlib.pyplot as plt
@@ -79,7 +80,7 @@ class Pix2Pix:
         u6 = deconv2d(input=u5, filters=n, skip_input=d1)
 
         u7 = UpSampling2D(size=2)(u6)
-        output_img = Conv2D(input_shape[2], kernel_size=4, strides=1, padding="same", activation="tanh")(u7)
+        output_img = Conv2D(input_shape[2], kernel_size=4, strides=1, padding="same", activation="sigmoid")(u7)
 
         return Model(input, output_img)
 
@@ -112,7 +113,7 @@ class Pix2Pix:
         u6 = deconv2d(input=u5, filters=n, skip_input=d1)
 
         u7 = UpSampling2D(size=2)(u6)
-        output_img = Conv2D(input_shape[2], kernel_size=4, strides=1, padding="same", activation="tanh")(u7)
+        output_img = Conv2D(input_shape[2], kernel_size=4, strides=1, padding="same", activation="sigmoid")(u7)
 
         return Model(input, output_img)
 
@@ -250,4 +251,4 @@ class Pix2Pix:
             yield imgs_A, imgs_B
 
     def load_img_as_np(self, path):
-        return scipy.misc.imread(path, mode="RGB").astype(np.float)
+        return tifffile.imread(path)
