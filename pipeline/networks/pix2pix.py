@@ -1,6 +1,8 @@
 import datetime
+import gc
 import logging
 import os
+import random
 import re
 from glob import glob
 from pathlib import Path
@@ -33,21 +35,14 @@ class Pix2Pix:
 
         self.discriminator = self.build_discriminator(input_shape=self.img_shape)
         self.discriminator.trainable = False
-        self.discriminator.compile(loss="mse", optimizer="adam", metrics=["accuracy"])
+        self.discriminator.compile(loss="mse", optimizer="adam")
         if light_w:
             self.generator = self.build_lightw_generator(input_shape=self.img_shape)
         else:
             self.generator = self.build_generator(input_shape=self.img_shape)
+        self.generator.compile(loss="mse", optimizer="adam")
 
-        img_A = Input(shape=self.img_shape)
-        img_B = Input(shape=self.img_shape)
-        self.disc_patch = (16, 16, 1)
-
-        fake_B = self.generator(img_A)
-        is_real = self.discriminator([fake_B, img_A])
-
-        self.combined = Model(inputs=[img_A, img_B], outputs=[is_real, fake_B])
-        self.combined.compile(loss=["mse", "mae"], loss_weights=[1, 100], optimizer="adam")
+        self.disc_patch = (int(self.img_shape[0]/16), int(self.img_shape[0]/16), 1)
 
     def build_generator(self, input_shape):
         def conv2d(input, filters, batch_norm, k_size=4):
@@ -155,15 +150,15 @@ class Pix2Pix:
         snapshot_count = 1
 
         if load_last_chkpt:
-            list_of_folders = os.listdir(os.path.join(settings.result_dir, "pix2pix"))
+            list_of_folders = os.listdir(os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem))
             potential_folders = []
             for folder in list_of_folders:  # remove with no checkpoints
-                if len(os.listdir(os.path.join(settings.result_dir, "pix2pix", folder, "checkpoints"))) != 0:
+                if len(os.listdir(os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem, folder, "checkpoints"))) != 0:
                     potential_folders.append(folder)
             if not potential_folders:
                 print("No previous weights found!")
             latest_folder = max([datetime.datetime.strptime(i, "%Y-%m-%d-%H-%M-%S") for i in potential_folders])
-            goal_folder = os.path.join(settings.result_dir, "pix2pix", latest_folder.strftime("%Y-%m-%d-%H-%M-%S"), "checkpoints")
+            goal_folder = os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem, latest_folder.strftime("%Y-%m-%d-%H-%M-%S"), "checkpoints")
             discriminator_path = max([os.path.join(goal_folder, d) for d in os.listdir(goal_folder) if "discriminator" in d], key=os.path.getctime)
             generator_path = max([os.path.join(goal_folder, d) for d in os.listdir(goal_folder) if "generator" in d], key=os.path.getctime)
             self.discriminator.load_weights(discriminator_path)
@@ -178,29 +173,28 @@ class Pix2Pix:
         data_generator = self.load_batch(data_dir=data_dir, batch_size=batch_size)
         start_time = datetime.datetime.now()
         for epoch in range(start_iter, epochs):
-
-            imgs_A, imgs_B = next(data_generator)
+            imgs_A, imgs_B = next(data_generator)   # abstraction A, realistic B
             fake_Bs = self.generator.predict(imgs_A)
 
             discriminator_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], real)
             discriminator_loss_fake = self.discriminator.train_on_batch([imgs_A, fake_Bs], fake)
-            discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
-            generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
+            # discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
+            generator_loss = self.generator.train_on_batch(x=imgs_A, y=imgs_B)
 
             # visualization
             if epoch % sample_interval == 0:
                 elapsed_time = datetime.datetime.now() - start_time
 
-                if elapsed_time > datetime.timedelta(hours=0, minutes=30)*snapshot_count:
+                if elapsed_time > datetime.timedelta(hours=0, minutes=30)*snapshot_count or epoch == epochs:
                     snapshot_count += 1
                     self.discriminator.save(os.path.join(checkpoint_path, "discriminator" + str(epoch)))
                     self.generator.save(os.path.join(checkpoint_path, "generator" + str(epoch)))
                     print("Saved model at " + str(epoch) + " epochs model.")
 
                 logging.info("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s",
-                             epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], str(elapsed_time))
+                             epoch, epochs, discriminator_loss_real, discriminator_loss_fake, generator_loss, str(elapsed_time))
                 print("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s" %
-                      (epoch, epochs, discriminator_loss[0], discriminator_loss[1], generator_loss[0], str(elapsed_time)))
+                      (epoch, epochs, discriminator_loss_real, discriminator_loss_fake, generator_loss, str(elapsed_time)))
 
                 gen_imgs = [imgs_B, imgs_A, fake_Bs]
 
@@ -231,8 +225,9 @@ class Pix2Pix:
         paths = os.listdir(data_dir)
         paths = [os.path.join(data_dir, i) for i in paths]
 
-        for i in range(0, len(paths)-1, batch_size):
-            batch = paths[i:i+batch_size]
+        while True:
+            random_start = random.randint(0, len(paths)-batch_size-1)
+            batch = paths[random_start:random_start+batch_size]
             imgs_A, imgs_B = [], []
             for img in batch:
                 img = self.load_img_as_np(img)
