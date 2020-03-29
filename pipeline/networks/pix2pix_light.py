@@ -1,33 +1,3 @@
-import datetime
-import gc
-import logging
-import os
-import random
-import re
-from glob import glob
-from pathlib import Path
-
-import tensorflow as tf
-from keras_contrib.callbacks import tensorboard
-import tifffile
-
-import settings
-import matplotlib.pyplot as plt
-import numpy as np
-import scipy.misc
-import keras
-from keras.layers import BatchNormalization, Lambda
-from keras.layers import Input, Concatenate
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import UpSampling2D, Conv2D, Conv2DTranspose
-from keras.models import Model
-import settings
-from tensorflow.keras.layers import Multiply
-
-
-# discriminator outputs 1 if its a real pair
-# img A is used to produce img B/fake B
-
 class Pix2Pix:
     def __init__(self, image_shape):
         logging.getLogger("matplotlib").setLevel(logging.ERROR)
@@ -38,9 +8,7 @@ class Pix2Pix:
 
         self.discriminator = self.build_discriminator(input_shape=self.img_shape)
         self.discriminator.compile(loss="mse", optimizer="adam")
-        self.generator = self.build_generator(input_shape=self.img_shape)
-        self.generator.trainable = False
-        self.generator.compile(loss="mae", optimizer="adam")
+        self.generator = self.build_lightw_generator(input_shape=self.img_shape)
 
         self.disc_patch = (int(self.img_shape[0]/16), int(self.img_shape[0]/16), 1)
 
@@ -78,7 +46,41 @@ class Pix2Pix:
         u5 = deconv2d(input=u4, filters=n*2, skip_input=d2)
         u6 = deconv2d(input=u5, filters=n, skip_input=d1)
 
-        output_img = Conv2DTranspose(filters=3, kernel_size=4, strides=2, padding='same', activation="tanh")(u6)
+        output_img = Conv2DTranspose(3, (4, 4), strides=(2, 2), padding='same', activation="tanh")(u6)
+
+        return Model(input, output_img)
+
+    def build_lightw_generator(self, input_shape):
+        def conv2d(input, filters, batch_norm, k_size=4):
+            d = Conv2D(filters, kernel_size=k_size, strides=2, padding="same")(input)
+            d = LeakyReLU(alpha=0.2)(d)
+            if batch_norm:
+                d = BatchNormalization(momentum=0.8)(d)
+            return d
+
+        def deconv2d(input, filters, skip_input, k_size=4):
+            u = UpSampling2D(size=2)(input)
+            u = Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u)
+            u = BatchNormalization(momentum=0.8)(u)
+            u = Concatenate()([u, skip_input])
+            return u
+
+        input = Input(shape=input_shape)
+        n = input_shape[0]
+
+        d1 = conv2d(input=input, filters=n, batch_norm=False)
+        d2 = conv2d(input=d1, filters=n*2, batch_norm=True)
+        d3 = conv2d(input=d2, filters=n*4, batch_norm=True)
+
+        d7 = conv2d(input=d3, filters=n*8, batch_norm=True)
+
+        u4 = deconv2d(input=d7, filters=n*4, skip_input=d3)
+        u5 = deconv2d(input=u4, filters=n*2, skip_input=d2)
+        u6 = deconv2d(input=u5, filters=n, skip_input=d1)
+
+        u7 = UpSampling2D(size=2)(u6)
+        output_img = Conv2D(input_shape[2], kernel_size=4, strides=1, padding="same", activation="sigmoid")(u7)
+
 
         return Model(input, output_img)
 
@@ -140,9 +142,8 @@ class Pix2Pix:
         start_time = datetime.datetime.now()
         for epoch in range(start_iter, epochs):
             imgs_A, imgs_B = next(data_generator)   # abstraction A, realistic B
-            fake_Bs = np.float64(self.generator.predict(imgs_A))
-
-            # fake_Bs = np.interp(fake_Bs, (fake_Bs.min(), fake_Bs.max()), (0, 255))
+            fake_Bs = self.generator.predict(imgs_A)
+            fake_Bs = np.interp(fake_Bs, (fake_Bs.min(), fake_Bs.max()), (0, +1))
 
             # discriminator_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], real)
             # discriminator_loss_fake = self.discriminator.train_on_batch([imgs_A, fake_Bs], fake)
@@ -169,7 +170,7 @@ class Pix2Pix:
                 gen_imgs = [imgs_B, imgs_A, fake_Bs]
 
                 titles = ["Condition", "Original", "Generated"]
-                if batch_size == 1:
+                if batch_size <= 1:
                     fig, ax = plt.subplots(nrows=1, ncols=len(gen_imgs))
                     for j in range(len(gen_imgs)):
                         ax[j].imshow(gen_imgs[j][0])
@@ -207,9 +208,9 @@ class Pix2Pix:
                 img_A = img[:, :half_w, :]
                 img_B = img[:, half_w:, :]
 
-                img_A = np.interp(scipy.misc.imresize(img_A, self.img_shape[0:2]), (0, 255), (-1, 1))
+                img_A = scipy.misc.imresize(img_A, self.img_shape[0:2])
+                img_B = scipy.misc.imresize(img_B, self.img_shape[0:2])
 
-                img_B = np.interp(scipy.misc.imresize(img_B, self.img_shape[0:2]), (0, 255), (-1, 1))
 
                 imgs_A.append(img_A)
                 imgs_B.append(img_B)

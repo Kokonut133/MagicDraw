@@ -7,6 +7,7 @@ from PIL import Image
 
 # applies global positive standardization (range 0:1)
 def process(input_dir, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
     if len(os.listdir(input_dir)) == len(os.listdir(output_dir)):
         print("Already normalized dataset")
         return
@@ -29,7 +30,6 @@ def process(input_dir, output_dir):
     print("Calculated means: " + str(mean) + " and stddevs: " + str(stddev))
 
     files = os.listdir(input_dir)
-    os.makedirs(output_dir, exist_ok=True)
 
     for file in files:
         input_file = os.path.join(input_dir, file)
