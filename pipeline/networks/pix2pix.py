@@ -39,7 +39,6 @@ class Pix2Pix:
         self.discriminator = self.build_discriminator(input_shape=self.img_shape)
         self.discriminator.compile(loss="mse", optimizer="adam")
         self.generator = self.build_generator(input_shape=self.img_shape)
-        self.generator.trainable = False
         self.generator.compile(loss="mae", optimizer="adam")
 
         self.disc_patch = (int(self.img_shape[0]/16), int(self.img_shape[0]/16), 1)
@@ -78,7 +77,7 @@ class Pix2Pix:
         u5 = deconv2d(input=u4, filters=n*2, skip_input=d2)
         u6 = deconv2d(input=u5, filters=n, skip_input=d1)
 
-        output_img = Conv2DTranspose(filters=3, kernel_size=4, strides=2, padding='same', activation="tanh")(u6)
+        output_img = Conv2DTranspose(filters=3, kernel_size=4, strides=2, padding='same', activation="sigmoid")(u6)
 
         return Model(input, output_img)
 
@@ -207,9 +206,9 @@ class Pix2Pix:
                 img_A = img[:, :half_w, :]
                 img_B = img[:, half_w:, :]
 
-                img_A = np.interp(scipy.misc.imresize(img_A, self.img_shape[0:2]), (0, 255), (-1, 1))
+                img_A = np.interp(scipy.misc.imresize(img_A, self.img_shape[0:2]), (0, 255), (0, 1))
 
-                img_B = np.interp(scipy.misc.imresize(img_B, self.img_shape[0:2]), (0, 255), (-1, 1))
+                img_B = np.interp(scipy.misc.imresize(img_B, self.img_shape[0:2]), (0, 255), (0, 1))
 
                 imgs_A.append(img_A)
                 imgs_B.append(img_B)
