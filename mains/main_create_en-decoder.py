@@ -1,9 +1,8 @@
 from pathlib import Path
-
-from pipeline.data_gatherers.coco_grabber import create_coco_dataset
 from pipeline.networks.pix2pix import Pix2Pix
-import settings
 import os
+
+import settings
 
 from pipeline.processors.preprocessors import dataset_normalizer
 
@@ -12,7 +11,7 @@ if __name__ == '__main__':
     data_dir = os.path.join(settings.dataset_dir, "pix2pix", "facades", "train")
     processed_data_dir = os.path.join(Path(data_dir).parent, "train_processed")
 
-    pix2pix = Pix2Pix(image_shape=(128, 128, 3))
+    pix2pix = Pix2Pix(image_shape=(64, 64, 3))
 
     dataset_normalizer.process(input_dir=data_dir, output_dir=processed_data_dir)
     # batch size 1 is recommended in the paper; maybe abstraction is already too hard for this structure?

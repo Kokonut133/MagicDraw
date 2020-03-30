@@ -1,5 +1,6 @@
 import os
 import skimage
+import scipy
 import numpy as np
 import tifffile
 from PIL import Image
@@ -17,7 +18,7 @@ def process(input_dir, output_dir):
     means = [[], [], []]
     stddevs = [[], [], []]
     for file in files:
-        image = skimage.io.imread(file)
+        image = scipy.misc.imread(file)
         for i in range(0, 3):
             means[i].append(np.mean(image[:, :, i]))
             stddevs[i].append(np.std(image[:, :, i]))

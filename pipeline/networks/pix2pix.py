@@ -70,12 +70,12 @@ class Pix2Pix:
         d3 = conv2d(input=d2, filters=n * 4, batch_norm=True)
         d4 = conv2d(input=d3, filters=n * 8, batch_norm=True)
         d5 = conv2d(input=d4, filters=n * 8, batch_norm=True)
-        d6 = conv2d(input=d5, filters=n * 8, batch_norm=True)
+        # d6 = conv2d(input=d5, filters=n * 8, batch_norm=True)  # cause i dont have enough GB on video card
 
-        d7 = conv2d(input=d6, filters=n * 8, batch_norm=True)
+        d7 = conv2d(input=d5, filters=n * 8, batch_norm=True)
 
-        u1 = deconv2d(input=d7, filters=n * 8, skip_input=d6)
-        u2 = deconv2d(input=u1, filters=n * 8, skip_input=d5)
+        # u1 = deconv2d(input=d7, filters=n * 8, skip_input=d6)
+        u2 = deconv2d(input=d7, filters=n * 8, skip_input=d5)
         u3 = deconv2d(input=u2, filters=n * 8, skip_input=d4)
         u4 = deconv2d(input=u3, filters=n * 4, skip_input=d3)
         u5 = deconv2d(input=u4, filters=n * 2, skip_input=d2)
