@@ -228,6 +228,7 @@ class Pix2Pix:
 
                 img_B = np.interp(scipy.misc.imresize(img_B, self.img_shape[0:2]), (0, 255), (0, 1))
 
+
                 # switches the to generate picture to be from the right to the left
                 if generate_left:
                     imgs_A.append(img_B)
