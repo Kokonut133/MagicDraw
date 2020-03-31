@@ -1,4 +1,5 @@
 # from https://github.com/cybertronai/
+# only works for tf1 as contrib is missing
 
 from toposort import toposort
 import contextlib

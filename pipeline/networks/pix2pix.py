@@ -4,16 +4,22 @@ import os
 import random
 import re
 from pathlib import Path
+
+import keras
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.misc
 import tifffile
+from PIL import Image
 
+import tensorflow as tf
 from keras.layers import BatchNormalization
 from keras.layers import Input, Concatenate
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Conv2D, Conv2DTranspose
 from keras.models import Model
+from pipeline.processors.trainers.memory_saving_checkpoints_tf2 import checkpointable
+from keras.backend import tensorflow_backend, set_session
 
 import settings
 
@@ -23,10 +29,11 @@ import settings
 
 # tinkered version of Pix2Pix model
 class Pix2Pix:
-    def __init__(self, image_shape):
+    def __init__(self, image_shape, gpu_memory_friendly=False):
         logging.getLogger("matplotlib").setLevel(logging.ERROR)
 
         self.img_shape = image_shape
+        self.gpu_memory_friendly = gpu_memory_friendly
         if len(self.img_shape) != 3:
             print("Image should be w, h, c but is " + str(self.img_shape))
 
@@ -48,19 +55,34 @@ class Pix2Pix:
 
     # using only the generator with "mae" as loss seems to work better for segmenting pictures instead of the combination with the discriminator
     def build_generator(self, input_shape):
-        def conv2d(input, filters, batch_norm, k_size=4):
-            d = Conv2D(filters, kernel_size=k_size, strides=2, padding="same")(input)
-            d = LeakyReLU(alpha=0.2)(d)
-            if batch_norm:
-                d = BatchNormalization(momentum=0.8)(d)
-            return d
+        if self.gpu_memory_friendly:
+            def conv2d(input, filters, batch_norm, k_size=4):
+                d = checkpointable(Conv2D(filters, kernel_size=k_size, strides=2, padding="same"))(input)
+                d = LeakyReLU(alpha=0.2)(d)
+                if batch_norm:
+                    d = BatchNormalization(momentum=0.8)(d)
+                return d
 
-        def deconv2d(input, filters, skip_input, k_size=4):
-            u = UpSampling2D(size=2)(input)
-            u = Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u)
-            u = BatchNormalization(momentum=0.8)(u)
-            u = Concatenate()([u, skip_input])
-            return u
+            def deconv2d(input, filters, skip_input, k_size=4):
+                u = UpSampling2D(size=2)(input)
+                u = checkpointable(Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu"))(u)
+                u = BatchNormalization(momentum=0.8)(u)
+                u = Concatenate()([u, skip_input])
+                return u
+        else:
+            def conv2d(input, filters, batch_norm, k_size=4):
+                d = Conv2D(filters, kernel_size=k_size, strides=2, padding="same")(input)
+                d = LeakyReLU(alpha=0.2)(d)
+                if batch_norm:
+                    d = BatchNormalization(momentum=0.8)(d)
+                return d
+
+            def deconv2d(input, filters, skip_input, k_size=4):
+                u = UpSampling2D(size=2)(input)
+                u = Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u)
+                u = BatchNormalization(momentum=0.8)(u)
+                u = Concatenate()([u, skip_input])
+                return u
 
         input = Input(shape=input_shape)
         n = input_shape[0]
@@ -70,7 +92,7 @@ class Pix2Pix:
         d3 = conv2d(input=d2, filters=n * 4, batch_norm=True)
         d4 = conv2d(input=d3, filters=n * 8, batch_norm=True)
         d5 = conv2d(input=d4, filters=n * 8, batch_norm=True)
-        # d6 = conv2d(input=d5, filters=n * 8, batch_norm=True)  # cause i dont have enough GB on video card
+        # d6 = conv2d(input=d5, filters=n * 8, batch_norm=True)     # memory issues
 
         d7 = conv2d(input=d5, filters=n * 8, batch_norm=True)
 
@@ -86,12 +108,20 @@ class Pix2Pix:
         return Model(input, output_img)
 
     def build_discriminator(self, input_shape):
-        def discriminator_layer(input, filters, batch_norm, f_size=4):
-            d = Conv2D(filters, kernel_size=f_size, strides=2, padding="same")(input)
-            d = LeakyReLU(alpha=0.2)(d)
-            if batch_norm:
-                d = BatchNormalization(momentum=0.8)(d)
-            return d
+        if self.gpu_memory_friendly:
+            def discriminator_layer(input, filters, batch_norm, f_size=4):
+                d = checkpointable(Conv2D(filters, kernel_size=f_size, strides=2, padding="same"))(input)
+                d = LeakyReLU(alpha=0.2)(d)
+                if batch_norm:
+                    d = BatchNormalization(momentum=0.8)(d)
+                return d
+        else:
+            def discriminator_layer(input, filters, batch_norm, f_size=4):
+                d = Conv2D(filters, kernel_size=f_size, strides=2, padding="same")(input)
+                d = LeakyReLU(alpha=0.2)(d)
+                if batch_norm:
+                    d = BatchNormalization(momentum=0.8)(d)
+                return d
 
         img_A = Input(shape=input_shape)
         img_B = Input(shape=input_shape)
@@ -109,7 +139,10 @@ class Pix2Pix:
 
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, data_dir, load_last_chkpt=False, generate_left=False, batch_size=5, sample_interval=1000):
+    def train(self, epochs, data_dir, load_last_chkpt=False, generate_right=False, batch_size=5, sample_interval=1000):
+        # config = tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True))
+        # set_session(tf.compat.v1.Session(config=config))
+
         result_dir = os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem,
                                   str(datetime.datetime.today().strftime("%Y-%m-%d-%H-%M-%S")))
         os.makedirs(result_dir, exist_ok=True)
@@ -147,7 +180,7 @@ class Pix2Pix:
         real = np.ones((batch_size,) + self.disc_patch)
         fake = np.zeros((batch_size,) + self.disc_patch)
 
-        data_generator = self.load_batch(data_dir=data_dir, batch_size=batch_size, generate_left=generate_left)
+        data_generator = self.load_batch(data_dir=data_dir, batch_size=batch_size, generate_right=generate_right)
         start_time = datetime.datetime.now()
         for epoch in range(start_iter, epochs):
             imgs_A, imgs_B = next(data_generator)  # abstraction A, realistic B
@@ -157,9 +190,9 @@ class Pix2Pix:
             discriminator_loss_fake = self.discriminator.train_on_batch([imgs_A, fake_Bs], fake)
             discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
 
-            # 0.3 is chosen arbitarily, varies per dataset; only train generator when discriminator works well already
-            # TODO: let discriminator train for 15 mins and select the cutoff based on the lowest 10-50% of losses
-            if discriminator_loss < 0.3:
+            # if the discriminator learns more from real examples, improve the generator\
+            # seems to do slow training; maybe first train both for 30 mins and then make this
+            if discriminator_loss_real > discriminator_loss_fake:
                 # generator_loss = self.generator.train_on_batch(x=imgs_A, y=imgs_B)
                 generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
                 generator_loss = np.average(generator_loss)
@@ -208,7 +241,7 @@ class Pix2Pix:
                     fig.savefig(os.path.join(result_dir, str(epoch)))
                     plt.close()
 
-    def load_batch(self, data_dir, batch_size, generate_left):
+    def load_batch(self, data_dir, batch_size, generate_right):
         paths = os.listdir(data_dir)
         paths = [os.path.join(data_dir, i) for i in paths]
 
@@ -224,13 +257,11 @@ class Pix2Pix:
                 img_A = img[:, :half_w, :]
                 img_B = img[:, half_w:, :]
 
-                img_A = np.interp(scipy.misc.imresize(img_A, self.img_shape[0:2]), (0, 255), (0, 1))
-
-                img_B = np.interp(scipy.misc.imresize(img_B, self.img_shape[0:2]), (0, 255), (0, 1))
-
+                img_A = np.interp(np.array(Image.fromarray(img_A, mode="RGB").resize(self.img_shape[0:2])), (0, 255), (0, 1))
+                img_B = np.interp(np.array(Image.fromarray(img_B, mode="RGB").resize(self.img_shape[0:2])), (0, 255), (0, 1))
 
                 # switches the to generate picture to be from the right to the left
-                if generate_left:
+                if generate_right:
                     imgs_A.append(img_B)
                     imgs_B.append(img_A)
                 else:
