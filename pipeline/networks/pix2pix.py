@@ -24,6 +24,9 @@ from keras.backend import tensorflow_backend, set_session
 import settings
 
 
+__author__="cstur"
+
+
 # discriminator outputs 1 if its a real pair
 # img A is used to produce img B/fake B
 
@@ -34,8 +37,12 @@ class Pix2Pix:
 
         self.img_shape = image_shape
         self.gpu_memory_friendly = gpu_memory_friendly
+        if self.gpu_memory_friendly:
+            gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+            for device in gpu_devices:
+                tf.config.experimental.set_memory_growth(device, True)
         if len(self.img_shape) != 3:
-            print("Image should be w, h, c but is " + str(self.img_shape))
+            print("Image should be width, height, channel but is " + str(self.img_shape))
 
         self.discriminator = self.build_discriminator(input_shape=self.img_shape)
         self.discriminator.compile(loss="mse", optimizer="adam")
@@ -140,9 +147,6 @@ class Pix2Pix:
         return Model([img_A, img_B], validity)
 
     def train(self, epochs, data_dir, load_last_chkpt=False, generate_right=False, batch_size=5, sample_interval=1000):
-        # config = tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True))
-        # set_session(tf.compat.v1.Session(config=config))
-
         result_dir = os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem,
                                   str(datetime.datetime.today().strftime("%Y-%m-%d-%H-%M-%S")))
         os.makedirs(result_dir, exist_ok=True)
@@ -190,9 +194,11 @@ class Pix2Pix:
             discriminator_loss_fake = self.discriminator.train_on_batch([imgs_A, fake_Bs], fake)
             discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
 
+            elapsed_time = datetime.datetime.now() - start_time
+
             # if the discriminator learns more from real examples, improve the generator\
-            # seems to do slow training; maybe first train both for 30 mins and then make this
-            if discriminator_loss_real > discriminator_loss_fake:
+            # trains both the first 30 mins and then only trains the generator when it learned more from the real images
+            if discriminator_loss_real > discriminator_loss_fake or elapsed_time < datetime.timedelta(minutes=30):
                 # generator_loss = self.generator.train_on_batch(x=imgs_A, y=imgs_B)
                 generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
                 generator_loss = np.average(generator_loss)
@@ -201,8 +207,6 @@ class Pix2Pix:
 
             # visualization
             if epoch % sample_interval == 0:
-                elapsed_time = datetime.datetime.now() - start_time
-
                 if elapsed_time > datetime.timedelta(hours=0, minutes=30) * snapshot_count or epoch == epochs:
                     snapshot_count += 1
                     self.discriminator.save(os.path.join(checkpoint_path, "discriminator" + str(epoch)))
@@ -257,8 +261,8 @@ class Pix2Pix:
                 img_A = img[:, :half_w, :]
                 img_B = img[:, half_w:, :]
 
-                img_A = np.interp(np.array(Image.fromarray(img_A, mode="RGB").resize(self.img_shape[0:2])), (0, 255), (0, 1))
-                img_B = np.interp(np.array(Image.fromarray(img_B, mode="RGB").resize(self.img_shape[0:2])), (0, 255), (0, 1))
+                img_A = np.interp(scipy.misc.imresize(img_A, self.img_shape[0:2]), (0, 255), (0, 1))
+                img_B = np.interp(scipy.misc.imresize(img_B, self.img_shape[0:2]), (0, 255), (0, 1))
 
                 # switches the to generate picture to be from the right to the left
                 if generate_right:

@@ -5,12 +5,12 @@ from PIL import Image
 __author__="cstur"
 
 class DataGatherer():
-    def resizeFolder(input_dir, new_width=256):
+    def __init__(self):
+        pass
+
+    def resizeFolder(self, input_dir, new_width=256):
         imgs = os.listdir(input_dir)
         print("Found files:", len(imgs), "; Resizing all images be %d pixels wide" % new_width)
-
-        # if not os.path.exists(input_dir+"/resized/"):
-        #    os.makedirs(input_dir+"/resized/")
 
         for img in imgs:
             pic = Image.open(input_dir + "/" + img)
@@ -19,11 +19,19 @@ class DataGatherer():
             new_pic = pic.resize((new_width, new_width))
             new_pic.save(input_dir + "/resized/" + img)
 
-    keywords = ["water", "fire"]
-    quantity = 3
+    def download_images(self, keyword):
+        arguments = {"keywords": keyword, "format": "jpg", "limit": 4,
+                     "print_urls": True, "size": "medium", "aspect_ratio": "panoramic"}
 
-    response = google_images_download.googleimagesdownload()
-    for word in keywords:
-        absolute_image_paths = response.download(
-            {"keywords": word, "limit": quantity, "chromedriver": '/home/christian/myPrograms/chromedriver'})
-        resizeFolder(os.getcwd() + "/downloads/" + word)
+        response = google_images_download.googleimagesdownload()
+
+        try:
+            response.download(arguments)
+
+        except FileNotFoundError:
+            arguments = {"keywords": keyword, "format": "jpg", "limit": 4,
+                         "print_urls": True, "size": "medium"}
+            try:
+                response.download(arguments)
+            except:
+                pass
