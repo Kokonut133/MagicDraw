@@ -34,6 +34,7 @@ if __name__ == '__main__':
     os.makedirs(settings.res_dir, exist_ok=True)
     os.makedirs(settings.img_dir, exist_ok=True)
     os.makedirs(settings.dataset_dir, exist_ok=True)
+    os.makedirs(settings.googled_dir, exist_ok=True)
     os.makedirs(settings.result_dir, exist_ok=True)
 
     get_coco = False

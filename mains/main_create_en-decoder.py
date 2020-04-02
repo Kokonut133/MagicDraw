@@ -11,7 +11,7 @@ __author__="cstur"
 
 if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'   # to train on cpu
-    data_dir = os.path.join(settings.dataset_dir, "pix2pix", "facades", "train")
+    data_dir = os.path.join(settings.dataset_dir, "pix2pix", "maps", "train")
     processed_data_dir = os.path.join(Path(data_dir).parent, "train_processed")
 
     # 100 epochs 64x64x3 loss for D and G gpu_memory_friendly=True->9 sec; =False->9sec

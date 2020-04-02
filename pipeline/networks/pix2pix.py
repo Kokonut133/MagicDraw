@@ -63,16 +63,18 @@ class Pix2Pix:
     # using only the generator with "mae" as loss seems to work better for segmenting pictures instead of the combination with the discriminator
     def build_generator(self, input_shape):
         if self.gpu_memory_friendly:
-            def conv2d(input, filters, batch_norm, k_size=4):
-                d = checkpointable(Conv2D(filters, kernel_size=k_size, strides=2, padding="same"))(input)
+            @checkpointable
+            def conv2d(input, filters, batch_norm, k_size=4, _checkpoint=True):
+                d = Conv2D(filters, kernel_size=k_size, strides=2, padding="same", activation="relu")(input)
                 d = LeakyReLU(alpha=0.2)(d)
                 if batch_norm:
                     d = BatchNormalization(momentum=0.8)(d)
                 return d
 
-            def deconv2d(input, filters, skip_input, k_size=4):
+            @checkpointable
+            def deconv2d(input, filters, skip_input, k_size=4, _checkpoint=True):
                 u = UpSampling2D(size=2)(input)
-                u = checkpointable(Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu"))(u)
+                u = Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u)
                 u = BatchNormalization(momentum=0.8)(u)
                 u = Concatenate()([u, skip_input])
                 return u
@@ -112,19 +114,22 @@ class Pix2Pix:
 
         output_img = Conv2DTranspose(filters=3, kernel_size=4, strides=2, padding='same', activation="sigmoid")(u6)
 
-        return Model(input, output_img)
+        layers = [d1, d2, d3, d4, d5, d7, u2, u3, u4, u5, u6]
+        watch = [v for layer in layers for v in layer.trainable_variables]  # delete if want to run
+        return Model(input, output_img, _watch_vars=watch)
 
     def build_discriminator(self, input_shape):
         if self.gpu_memory_friendly:
-            def discriminator_layer(input, filters, batch_norm, f_size=4):
-                d = checkpointable(Conv2D(filters, kernel_size=f_size, strides=2, padding="same"))(input)
+            @checkpointable
+            def discriminator_layer(input, filters, batch_norm, f_size=4, _checkpoint=True):
+                d = Conv2D(filters, kernel_size=f_size, strides=2, padding="same", activation="relu")(input)
                 d = LeakyReLU(alpha=0.2)(d)
                 if batch_norm:
                     d = BatchNormalization(momentum=0.8)(d)
                 return d
         else:
             def discriminator_layer(input, filters, batch_norm, f_size=4):
-                d = Conv2D(filters, kernel_size=f_size, strides=2, padding="same")(input)
+                d = Conv2D(filters, kernel_size=f_size, strides=2, padding="same", activation="relu")(input)
                 d = LeakyReLU(alpha=0.2)(d)
                 if batch_norm:
                     d = BatchNormalization(momentum=0.8)(d)
@@ -144,6 +149,8 @@ class Pix2Pix:
 
         validity = Conv2D(1, kernel_size=4, strides=1, padding="same")(d4)
 
+        layers = [d1, d2, d3, d4]
+        watch = [v for layer in layers for v in layer.graph.trainable_variables]
         return Model([img_A, img_B], validity)
 
     def train(self, epochs, data_dir, load_last_chkpt=False, generate_right=False, batch_size=5, sample_interval=1000):
@@ -215,6 +222,7 @@ class Pix2Pix:
 
                 # logging.info("[Epoch %d/%d] [G loss: %f] time: %s", epoch, epochs, generator_loss, str(elapsed_time))
                 # print("[Epoch %d/%d] [G loss: %f] time: %s" % (epoch, epochs, generator_loss, str(elapsed_time)))
+                elapsed_time = datetime.datetime.now() - start_time
                 logging.info("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s",
                              epoch, epochs, discriminator_loss_real, discriminator_loss_fake, generator_loss, str(elapsed_time))
                 print("[Epoch %d/%d] [D loss real: %f; fake: %f; total: %f] [G loss: %f] time: %s" %
