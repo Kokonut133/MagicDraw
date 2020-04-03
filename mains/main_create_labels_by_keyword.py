@@ -6,7 +6,11 @@ __author__="cstur"
 from pipeline.data_gatherers.imageset_creator import ImagesetCreator
 
 if __name__ == '__main__':
-    keyword = "ocean"
     data_creator = ImagesetCreator()
-    data_creator.create_image_dataset(keyword=keyword, height=128, width=128, amount=5)
+    data_creator.create_image_dataset(keyword="forest", size="medium", amount=1000)
+    data_creator.create_image_dataset(keyword="stones", size="medium", amount=1000)
+    data_creator.create_image_dataset(keyword="clouds", size="medium", amount=1000)
+    data_creator.create_image_dataset(keyword="sky", size="medium", amount=1000)
+
+
 
