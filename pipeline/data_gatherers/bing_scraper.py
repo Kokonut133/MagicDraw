@@ -118,7 +118,7 @@ class ImageDownloader:
                                 type=str, required=False)
             parser.add_argument('-p', '--print_urls', default=True, help="Print the URLs of the images",
                                 action="store_true")
-            parser.add_argument('-ps', '--print_size', default=True, help="Print the size of the images on disk",
+            parser.add_argument('-ps', '--print_size', default=False, help="Print the size of the images on disk",
                                 action="store_true")
             parser.add_argument('-pp', '--print_paths', default=True,
                                 help="Prints the list of absolute paths of the images", action="store_true")

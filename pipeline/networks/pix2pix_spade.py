@@ -4,6 +4,7 @@ import os
 import random
 import re
 from pathlib import Path
+import tensorflow_addons as tfa
 
 import keras
 import matplotlib.pyplot as plt
@@ -64,18 +65,17 @@ class Pix2Pix:
 
     # using only the generator with "mae" as loss seems to work better for segmenting pictures instead of the combination with the discriminator
     def build_generator(self, input_shape):
-        def conv2d(input, filters, batch_norm, k_size=4):
+        def conv2d(input, filters, instance_norm, k_size=4):
             d = Conv2D(filters, kernel_size=k_size, strides=2, padding="same")(input)
             d = LeakyReLU(alpha=0.2)(d)
-            if batch_norm:
-                d = BatchNormalization(momentum=0.8)(d)
+            if instance_norm:
+                d = tfa.layers.InstanceNormalization(momentum=0.8)(d)
             return d
 
         def deconv2d(input, filters, skip_input, k_size=4):
             u = UpSampling2D(size=2)(input)
             u = Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u)
-            # u = ConvSN2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u) for spade norm
-            u = BatchNormalization(momentum=0.8)(u)
+            u = tfa.layers.InstanceNormalization(momentum=0.8)(u)
             u = Concatenate()([u, skip_input])
             return u
 

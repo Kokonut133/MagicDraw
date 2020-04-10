@@ -1,6 +1,7 @@
 from pathlib import Path
 from pipeline.networks.pix2pix import Pix2Pix
 import os
+# from tensorflow_large_model_support import LMS  # linux exclusive
 
 import settings
 
@@ -14,7 +15,6 @@ if __name__ == '__main__':
     data_dir = os.path.join(settings.dataset_dir, "pix2pix", "maps", "train")
     processed_data_dir = os.path.join(Path(data_dir).parent, "train_processed")
 
-    # 100 epochs 64x64x3 loss for D and G gpu_memory_friendly=True->9 sec; =False->9sec
     pix2pix = Pix2Pix(image_shape=(128, 128, 3), gpu_memory_friendly=True)
 
     dataset_normalizer.process(input_dir=data_dir, output_dir=processed_data_dir)
