@@ -2,6 +2,7 @@
 # Originally from https://github.com/hardikvasa/google-images-download
 # Updated by Evan Sellers <sellersew@gmail.com> Feb 2020 for bing search with url only
 # Updated by glenn.jocher@gmail.com Feb 2020, requires python 3
+# Updated by christianstur@gmail.com April 2020, more compatible with broader access to internal parameters
 
 # python3 bing_scraper.py --url 'https://www.bing.com/images/search?q=flowers' --limit 10 --chromedriver /Users/glennjocher/Downloads/chromedriver
 # python3 bing_scraper.py --search 'honeybees on flowers' --limit 10 --chromedriver /Users/glennjocher/Downloads/chromedriver
@@ -27,6 +28,8 @@ from urllib.request import URLError, HTTPError
 
 from tqdm import tqdm
 
+import settings
+
 http.client._MAXHEADERS = 1000
 
 args_list = ["keywords", "keywords_from_file", "prefix_keywords", "suffix_keywords",
@@ -41,7 +44,7 @@ class ImageDownloader:
     def __init__(self):
         pass
 
-    def user_input(self, keyword, output_dir, amount, chromedriver, exact_size=None, size=None):
+    def user_input(self, keyword, image_dir, amount, chromedriver, prefix, exact_size=None, size=None):
         config = argparse.ArgumentParser()
         config.add_argument('-cf', '--config_file', help='config file name', default='', type=str, required=False)
         config_file_check = config.parse_known_args()
@@ -179,11 +182,13 @@ class ImageDownloader:
 
             arguments = vars(args)
             arguments["keywords"] = keyword
-            arguments["output_directory"] = output_dir
+            arguments["output_directory"] = settings.img_dir
+            arguments["image_directory"] = image_dir
             arguments["size"] = size
             arguments["chromedriver"] = chromedriver
             arguments["limit"] = amount
             arguments["exact_size"] = exact_size
+            arguments["prefix_keywords"] = prefix
             arguments["download"] = True
 
             records = []
@@ -527,7 +532,7 @@ class ImageDownloader:
         return
 
     # Download Images
-    def download_image(self, image_url, image_format, main_directory, dir_name, count, print_urls, socket_timeout,
+    def download_image(self, keyword, image_url, image_format, main_directory, dir_name, count, print_urls, socket_timeout,
                        prefix, print_size, no_numbering, download, save_source, img_src, silent_mode,
                        format, ignore_urls):
         download_message = ''
@@ -589,6 +594,9 @@ class ImageDownloader:
                     path = main_directory + "/" + dir_name + "/" + prefix + str(count) + "." + image_name
 
                 try:
+                    # output_file = open(path, 'wb')
+                    path = os.path.split(path)[0]
+                    path = os.path.join(path, keyword + str(count) + ".png")           # everything gets named .png
                     output_file = open(path, 'wb')
                     output_file.write(data)
                     output_file.close()
@@ -711,8 +719,8 @@ class ImageDownloader:
 
                 # download the images
                 download_status, download_message, return_image_name, absolute_path = self.download_image(
-                    object['image_link'], object['image_format'], main_directory, dir_name, count,
-                    arguments['print_urls'], arguments['socket_timeout'], arguments['prefix'], arguments['print_size'],
+                    arguments['keywords'], object['image_link'], object['image_format'], main_directory, dir_name,
+                    count, arguments['print_urls'], arguments['socket_timeout'], arguments['prefix'], arguments['print_size'],
                     arguments['no_numbering'], arguments['download'], arguments['save_source'],
                     object['image_source'], arguments["silent_mode"], arguments['format'],
                     arguments['ignore_urls'])
@@ -928,11 +936,11 @@ class ImageDownloader:
         return paths, total_errors
 
 
-    def download_from_bing(self, keyword, output_dir, amount, chromedriver, size=None, exact_size=None):
+    def download_from_bing(self, keyword, image_dir, amount, chromedriver, prefix, size=None, exact_size=None):
         if size is None:
-            records = self.user_input(keyword, output_dir, amount, chromedriver, exact_size=exact_size)
+            records = self.user_input(keyword, image_dir, amount, chromedriver, prefix=prefix, exact_size=exact_size)
         else:
-            records = self.user_input(keyword, output_dir, amount, chromedriver, size=size)
+            records = self.user_input(keyword, image_dir, amount, chromedriver, prefix=prefix, size=size)
         total_errors = 0
         t0 = time.time()  # start the timer
         for arguments in records:

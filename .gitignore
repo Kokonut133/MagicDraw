@@ -1,1 +1,3 @@
 resources
+third_party\aws_keys.py
+third_party/aws_keys.py
