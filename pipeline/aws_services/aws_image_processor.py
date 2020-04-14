@@ -2,6 +2,7 @@
 import datetime
 
 import boto3
+from botocore.exceptions import ClientError
 import third_party.aws_keys as credentials
 
 __author__ = "cstur"
@@ -13,25 +14,28 @@ class AWS_Imageprocessor:
         session = boto3.Session()
 
         # us east 1 seems the only place for mturk
-        if self.testing:
-            client = session.client('mturk',
-                region_name="us-east-1",
-                aws_access_key_id=credentials.AWSAccessKeyId,
-                aws_secret_access_key=credentials.AWSSecretKey,
-                endpoint_url="https://mturk-requester-sandbox.us-east-1.amazonaws.com/",
-            )
-            manage_url = "https://requestersandbox.mturk.com/mturk/manageHITs"
+        try:
+            if self.testing:
+                client = session.client('mturk',
+                    region_name="us-east-1",
+                    aws_access_key_id=credentials.AWSAccessKeyId,
+                    aws_secret_access_key=credentials.AWSSecretKey,
+                    endpoint_url="https://mturk-requester-sandbox.us-east-1.amazonaws.com/",
+                )
+                manage_url = "https://requestersandbox.mturk.com/mturk/manageHITs"
 
-        else:
-            client = session.client('mturk',
-                region_name="us-east-1",
-                aws_access_key_id=credentials.AWSAccessKeyId,
-                aws_secret_access_key=credentials.AWSSecretKey,
-                endpoint_url="https://mturk-requester.us-east-1.amazonaws.com",
-            )
-            manage_url = "https://requester.mturk.com/mturk/manageHITs"
+            else:
+                client = session.client('mturk',
+                    region_name="us-east-1",
+                    aws_access_key_id=credentials.AWSAccessKeyId,
+                    aws_secret_access_key=credentials.AWSSecretKey,
+                    endpoint_url="https://mturk-requester.us-east-1.amazonaws.com",
+                )
+                manage_url = "https://requester.mturk.com/mturk/manageHITs"
+            print("Account balance is \n", client.get_account_balance())
 
-        print("Account balance is \n", client.get_account_balance())
+        except ClientError as e:
+            print(e)
 
     def create_task(self, instructions:str, min_approval_rating:int=90):
         # @param instructions
