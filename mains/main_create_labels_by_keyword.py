@@ -13,8 +13,8 @@ if __name__ == '__main__':
     keywords_and_amount = {"grass": 50,
                            "stone": 50,
                            "sand": 50}
-    for key, val in keywords_and_amount.items():
-        data_creator.create_image_dataset(keyword=key, size="medium", image_dir="landscape_mix0", prefix="landscape ", amount=val)
+
+    data_creator.create_image_dataset(keyword=keywords_and_amount, size="medium", image_dir="landscape_mix0", prefix="landscape ")
 
 
 

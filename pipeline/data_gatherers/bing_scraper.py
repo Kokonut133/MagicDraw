@@ -935,7 +935,6 @@ class ImageDownloader:
                     total_errors = total_errors + errorCount
         return paths, total_errors
 
-
     def download_from_bing(self, keyword, image_dir, amount, chromedriver, prefix, size=None, exact_size=None):
         if size is None:
             records = self.user_input(keyword, image_dir, amount, chromedriver, prefix=prefix, exact_size=exact_size)

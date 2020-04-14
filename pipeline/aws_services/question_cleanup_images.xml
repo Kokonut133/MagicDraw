@@ -1,0 +1,29 @@
+<HTMLQuestion xmlns="http://mechanicalturk.amazonaws.com/AWSMechanicalTurkDataSchemas/2011-11-11/HTMLQuestion.xsd">
+  <HTMLContent><![CDATA[
+    <!DOCTYPE html>
+      <body>
+        <script src="https://assets.crowd.aws/crowd-html-elements.js"></script>
+          <crowd-image-classifier
+            src="${image_url}"
+            categories="['Yes', 'No', 'Cannot Determine']"
+            header="Does the image contain ${image_url}"
+            name="image-contains">
+
+            <short-instructions>
+                <!--    ${image_url}.replace(/[0-9]/g, '')-->
+            </short-instructions>
+
+            <full-instructions header="Does this image contain a ${image_url}?">
+                <h2>Detailed instructions</h2>
+                <p>Instructions for determining if the image contains the object:</p>
+                <ol>
+                <li>Determine if the object of interest occurs in the image</li>
+                <li>If it the object exists in the image, select that option; otherwise, indicate it does not</li>
+                </ol>
+            </full-instructions>
+          </crowd-image-classifier>
+      </body>
+    </html>
+  ]]></HTMLContent>
+  <FrameHeight>600</FrameHeight>
+</HTMLQuestion>
