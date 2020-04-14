@@ -2,3 +2,4 @@ resources
 aws_keys
 *aws_keys*
 **.pyc
+__pycache__
