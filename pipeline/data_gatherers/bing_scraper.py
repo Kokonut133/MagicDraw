@@ -11,6 +11,7 @@
 import argparse
 import codecs
 import datetime
+import glob
 import html
 import http.client
 import json
@@ -597,14 +598,17 @@ class ImageDownloader:
                     # output_file = open(path, 'wb')
                     path = os.path.split(path)[0]
                     path = os.path.join(path, keyword + str(count) + ".png")           # everything gets named .png
-                    output_file = open(path, 'wb')
-                    output_file.write(data)
-                    output_file.close()
-                    if save_source:
-                        list_path = main_directory + "/" + save_source + ".txt"
-                        list_file = open(list_path, 'a')
-                        list_file.write(path + '\t' + img_src + '\n')
-                        list_file.close()
+                    if os.path.exists(path=path):
+                        download_message = "Got already! " + keyword + '%s %s' % (image_url, download_message)
+                    else:
+                        output_file = open(path, 'wb')
+                        output_file.write(data)
+                        output_file.close()
+                        if save_source:
+                            list_path = main_directory + "/" + save_source + ".txt"
+                            list_file = open(list_path, 'a')
+                            list_file.write(path + '\t' + img_src + '\n')
+                            list_file.close()
                     absolute_path = os.path.abspath(path)
                 except OSError as e:
                     download_status = 'fail'
@@ -614,7 +618,7 @@ class ImageDownloader:
 
                 # return image name back to calling method to use it for thumbnail downloads
                 download_status = 'success'
-                download_message = '%s %s' % (image_url, download_message)
+                download_message = keyword + '%s %s' % (image_url, download_message)
                 return_image_name = prefix + str(count) + "." + image_name
 
                 # image size parameter
@@ -896,44 +900,50 @@ class ImageDownloader:
                     if limit < 1:  # if limit < 101
                         raw_html = self.download_page(url)  # download page
                     else:
-                        raw_html = self.download_extended_page(url, arguments['chromedriver'])
+                        amount_already = len(glob.glob(os.path.join(settings.img_dir, arguments["image_directory"], arguments["keywords"]+'*')))
+                        if amount_already != arguments["limit"]:
+                            raw_html = self.download_extended_page(url, arguments['chromedriver'])
 
-                    if not arguments["silent_mode"]:
-                        if arguments['download']:
-                            print('Downloading images...')
-                    items, errorCount, abs_path = self._get_all_items(raw_html, main_directory, dir_name, limit,
-                                                                      arguments)  # get all image items and download images
-                    paths[pky + search_keyword[i] + sky] = abs_path
+                            if not arguments["silent_mode"]:
+                                if arguments['download']:
+                                    print('Downloading images...')
+                            items, errorCount, abs_path = self._get_all_items(raw_html, main_directory, dir_name, limit,
+                                                                              arguments)  # get all image items and download images
+                            paths[pky + search_keyword[i] + sky] = abs_path
 
-                    # dumps into a json file
-                    if arguments['extract_metadata']:
-                        try:
-                            if not os.path.exists("logs"):
-                                os.makedirs("logs")
-                        except OSError as e:
-                            print(e)
-                        json_file = open("logs/" + search_keyword[i] + ".json", "w")
-                        json.dump(items, json_file, indent=4, sort_keys=True)
-                        json_file.close()
+                            # dumps into a json file
+                            if arguments['extract_metadata']:
+                                try:
+                                    if not os.path.exists("logs"):
+                                        os.makedirs("logs")
+                                except OSError as e:
+                                    print(e)
+                                json_file = open("logs/" + search_keyword[i] + ".json", "w")
+                                json.dump(items, json_file, indent=4, sort_keys=True)
+                                json_file.close()
 
-                    # Related images
-                    if arguments['related_images']:
-                        print("\nGetting list of related keywords...this may take a few moments")
-                        tabs = self.get_all_tabs(raw_html)
-                        for key, value in tabs.items():
-                            final_search_term = (search_term + " - " + key)
-                            print("\nNow Downloading - " + final_search_term)
-                            if limit < 1:  # if limit < 101:
-                                new_raw_html = self.download_page(value)  # download page
-                            else:
-                                new_raw_html = self.download_extended_page(value, arguments['chromedriver'])
-                            self.create_directories(main_directory, final_search_term)
-                            self._get_all_items(new_raw_html, main_directory, search_term + " - " + key, limit,
-                                                arguments)
+                            # Related images
+                            if arguments['related_images']:
+                                print("\nGetting list of related keywords...this may take a few moments")
+                                tabs = self.get_all_tabs(raw_html)
+                                for key, value in tabs.items():
+                                    final_search_term = (search_term + " - " + key)
+                                    print("\nNow Downloading - " + final_search_term)
+                                    if limit < 1:  # if limit < 101:
+                                        new_raw_html = self.download_page(value)  # download page
+                                    else:
+                                        new_raw_html = self.download_extended_page(value, arguments['chromedriver'])
+                                    self.create_directories(main_directory, final_search_term)
+                                    self._get_all_items(new_raw_html, main_directory, search_term + " - " + key, limit,
+                                                        arguments)
 
-                    i += 1
-                    total_errors = total_errors + errorCount
-        return paths, total_errors
+                            i += 1
+                            total_errors = total_errors + errorCount
+                            return paths, total_errors
+                        else:
+                            keywords=arguments["keywords"]
+                            print(f"Downloaded already {amount_already} for {keywords}.")
+                            return {}, 0
 
     def download_from_bing(self, keyword, image_dir, amount, chromedriver, prefix, size=None, exact_size=None):
         if size is None:

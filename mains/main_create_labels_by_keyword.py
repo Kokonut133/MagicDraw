@@ -7,14 +7,13 @@ from pipeline.data_gatherers.imageset_creator import ImagesetCreator
 
 if __name__ == '__main__':
     data_creator = ImagesetCreator()
-    # data_creator.create_image_dataset(keyword="stones -rolling", size="medium", amount=1000)        # -rolling to exclude search results for the rolling stones
-    # data_creator.create_image_dataset(keyword="grass", size="medium", amount=1000)
-    # data_creator.create_image_dataset(keyword="clouds", size="medium", amount=1000)
-    keywords_and_amount = {"grass": 50,
-                           "stone": 50,
-                           "sand": 50}
+    keywords_and_amount = {"grass": 200,
+                           "stone": 200,
+                           "sand": 200,
+                           "sky": 200,
+                           "clouds": 200}
 
-    data_creator.create_image_dataset(keyword=keywords_and_amount, size="medium", image_dir="landscape_mix0", prefix="landscape ")
+    data_creator.create_image_dataset(keyword=keywords_and_amount, size="medium", image_dir="landscapemix0", prefix="landscape ")
 
 
 
