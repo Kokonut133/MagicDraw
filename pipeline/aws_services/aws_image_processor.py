@@ -54,16 +54,16 @@ class AWS_Imageprocessor:
         worker_requirements = [{'QualificationTypeId': '000000000000000000L0', 'Comparator': 'GreaterThanOrEqualTo',
             'IntegerValues': [min_approval_rating], 'RequiredToPreview': True, }]
 
-        # question = open(question_file, "r").read()
         parameters = []
         with open(parameter_file, "r") as fin:
-            for line in fin.readlines():
-                parameters.append({"image_name": line.strip()})
+            param_name= re.sub('[{}]', '', fin.readline().strip())
+            for line in fin.read().splitlines()[1:]:
+                parameters.append({"Name": param_name, "Value": line})
 
         # lifetime = how many seconds its available for workers until it is removed
         response = self.client.create_hit(MaxAssignments=workers_per_hit, LifetimeInSeconds=60*60*24*7,
             AssignmentDurationInSeconds=process_time_in_s, Reward=reward, Title=title,
-            HITLayoutId="38FKB68HS4XCRCXFG4K897Q2S9HJQ7", HITLayoutParameters=parameters, Description=instructions,
+            HITLayoutId="3Y5KTGTWK7O4WEXU4H5EDNH26UP5R9", HITLayoutParameters=parameters, Description=instructions,
             QualificationRequirements=worker_requirements)
 
         # The response included several fields that will be helpful later
@@ -92,10 +92,15 @@ class AWS_Imageprocessor:
                 cloud_files.append(obj["Key"])
         new_files = [file for file in local_files if file not in cloud_files]
 
-        # uploads and creates csv file
-        with open(os.path.join(settings.root_dir, "pipeline", "aws_services", "s3_references", bucket_name+".csv"), "w") as fout:
-            fout.write("{image_name}\n")
-            for count, file in enumerate(new_files):
-                s3.upload_file(os.path.join(local_dir, file), bucket_name, file)
-                fout.write(file+"\n")
-                print(f"Uploaded {file} to {bucket_name} ({count+1}/{len(new_files)}).")
+        # uploads
+        for count, file in enumerate(new_files):
+            s3.upload_file(os.path.join(local_dir, file), bucket_name, file)
+            print(f"Uploaded {file} to {bucket_name} ({count+1}/{len(new_files)}).")
+
+        # creates csv
+        response=s3.list_objects_v2(Bucket=bucket_name)
+        with open(os.path.join(settings.root_dir, "pipeline", "aws_services", "s3_references", bucket_name+".csv"), "w+") as fout:
+            if len(fout.readlines())==0:
+                fout.write("{image_name}\n")
+            for obj in response["Contents"]:
+                fout.write(obj["Key"]+"\n")

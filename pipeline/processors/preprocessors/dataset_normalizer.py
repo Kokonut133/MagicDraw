@@ -43,4 +43,17 @@ def process(input_dir, output_dir):
 
     print("Normalized dataset")
 
+def convert_to_tif(input_dir, output_dir):
+    files = os.listdir(input_dir)
+    os.makedirs(output_dir, exist_ok=True)
+
+    for file in files:
+        input_file = os.path.join(input_dir, file)
+        image = np.asarray(Image.open(input_file)).astype("float32")
+        image = np.interp(image, (0, 255), (0, +1))
+        output_file = os.path.join(output_dir, (str(file.split(".")[0])+".tif"))
+        tifffile.imsave(output_file, image)
+
+    print("Converted all pics to tif!")
+
 
