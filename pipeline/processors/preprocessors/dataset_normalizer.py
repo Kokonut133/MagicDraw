@@ -38,7 +38,7 @@ def process(input_dir, output_dir):
         for i in range(0, 3):
             image[:, :, i] -= mean[i]
         image = np.interp(image, (image.min(), image.max()), (0, +1))
-        output_file = os.path.join(output_dir, (str(file.split(".")[0])+".tif"))
+        output_file = os.path.join(output_dir, (str(file.split(".")[0])+".tiff"))
         tifffile.imsave(output_file, image)
 
     print("Normalized dataset")
@@ -46,12 +46,15 @@ def process(input_dir, output_dir):
 def convert_to_tif(input_dir, output_dir):
     files = os.listdir(input_dir)
     os.makedirs(output_dir, exist_ok=True)
+    if len(os.listdir(input_dir)) == len(os.listdir(output_dir)):
+        print("Already converted")
+        return
 
     for file in files:
         input_file = os.path.join(input_dir, file)
         image = np.asarray(Image.open(input_file)).astype("float32")
         image = np.interp(image, (0, 255), (0, +1))
-        output_file = os.path.join(output_dir, (str(file.split(".")[0])+".tif"))
+        output_file = os.path.join(output_dir, (str(file.split(".")[0])+".tiff"))
         tifffile.imsave(output_file, image)
 
     print("Converted all pics to tif!")

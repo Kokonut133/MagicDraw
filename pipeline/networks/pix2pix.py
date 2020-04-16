@@ -179,8 +179,8 @@ class Pix2Pix:
                 total_time = datetime.datetime.now() - start_time
                 logging.info("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s", epoch, epochs,
                     d_loss_real, d_loss_fake, g_loss, str(total_time))
-                print(f"[Epoch {epoch}/{epochs}] [G loss: {g_loss:.4f}] "
-                      f"[D loss real: {d_loss_real:.4f}; fake:{d_loss_fake:.4f}; total: {d_loss:.4f}]"
+                print(f"[Epoch {epoch}/{epochs}] [G loss: {g_loss:.5f}] "
+                      f"[D loss real: {d_loss_real:.5f}; fake:{d_loss_fake:.5f}; total: {d_loss:.5f}]"
                       f" [G time: {g_time}; D time: {d_time}; total time: {total_time}]")
 
             if epoch% sample_interval==0:

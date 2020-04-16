@@ -18,7 +18,7 @@ if __name__ == '__main__':
     # os.environ["CUDA_VISIBLE_DEVICES"] = '1'  # GTX 980 Ti
     # os.environ["CUDA_VISIBLE_DEVICES"] = '-1'  # CPU
     # running Generator on Titan and Discriminator on 980 Ti is about 30-50% slower than CUDA_visibility to Titan only
-    # visibility to all GPUs results in the same as forcing only Titan usage
+    # visibility to all GPUs results in the same performance as forcing CUDA_visibility to Titan only
     list_available_gpus()
 
 
@@ -28,4 +28,4 @@ if __name__ == '__main__':
 
     # batch size 1 is recommended in the paper
     pix2pix = Pix2Pix(image_shape=(128, 128, 3), gpu_memory_friendly=True)
-    pix2pix.train(epochs=100000, batch_size=1, log_interval=100, sample_interval=1000, data_dir=processed_data_dir, generate_right=False, load_last_chkpt=False)
+    pix2pix.train(epochs=100000, batch_size=1, log_interval=100, sample_interval=1000, data_dir=processed_data_dir, generate_right=False, load_last_chkpt=True)

@@ -1,5 +1,6 @@
 # To clean imagesets from false images
 import datetime
+import math
 import os
 import re
 import uuid
@@ -60,18 +61,24 @@ class AWS_Imageprocessor:
             for line in fin.read().splitlines()[1:]:
                 parameters.append({"Name": param_name, "Value": line})
 
-        # lifetime = how many seconds its available for workers until it is removed
-        response = self.client.create_hit(MaxAssignments=workers_per_hit, LifetimeInSeconds=60*60*24*7,
-            AssignmentDurationInSeconds=process_time_in_s, Reward=reward, Title=title,
-            HITLayoutId="3Y5KTGTWK7O4WEXU4H5EDNH26UP5R9", HITLayoutParameters=parameters, Description=instructions,
-            QualificationRequirements=worker_requirements)
+        # split it into batches of 500 or else it wont accept it
+        for i in range(0, math.ceil(len(parameters)/400)):
+            # lifetime = how many seconds its available for workers until it is removed
+            response = self.client.create_hit(MaxAssignments=workers_per_hit, LifetimeInSeconds=60 * 60 * 24 * 7,
+                AssignmentDurationInSeconds=process_time_in_s, Reward=reward, Title=title,
+                HITLayoutId="3Y5KTGTWK7O4WEXU4H5EDNH26UP5R9", HITLayoutParameters=parameters,
+                Description=instructions, QualificationRequirements=worker_requirements)
 
-        # The response included several fields that will be helpful later
-        hit_type_id = response['HIT']['HITTypeId']
-        hit_id = response['HIT']['HITId']
-        print(f"Created HIT: {hit_id}")
-        print(f"You can work the HIT here: {self.preview}?groupId={hit_type_id}")
-        print(f"And see results here: {self.manage_url}")
+            # The response included several fields that will be helpful later
+            hit_type_id = response['HIT']['HITTypeId']
+            hit_id = response['HIT']['HITId']
+            print(f"HIT No. {i} .")
+            print(f"Created HIT: {hit_id}")
+            print(f"You can work the HIT here: {self.preview}?groupId={hit_type_id}")
+            print(f"And see results here: {self.manage_url}")
+
+        a=self.client.list_hits()
+        pass
 
     def upload_folder_to_s3(self, bucket_name: str, local_dir: str):
         s3 = boto3.client(service_name='s3',
@@ -101,6 +108,6 @@ class AWS_Imageprocessor:
         response=s3.list_objects_v2(Bucket=bucket_name)
         with open(os.path.join(settings.root_dir, "pipeline", "aws_services", "s3_references", bucket_name+".csv"), "w+") as fout:
             if len(fout.readlines())==0:
-                fout.write("{image_name}\n")
+                fout.write("image_name\n")
             for obj in response["Contents"]:
                 fout.write(obj["Key"]+"\n")
