@@ -59,15 +59,16 @@ class AWS_Imageprocessor:
         with open(parameter_file, "r") as fin:
             param_name= re.sub('[{}]', '', fin.readline().strip())
             for line in fin.read().splitlines()[1:]:
-                parameters.append([{"Name": param_name, "Value": line}])
+                parameters.append({"Name": param_name, "Value": line})
 
-        for i in range(0, len(parameters)):
+        # split it into batches of 500 or else it wont accept it
+        batchsize=500
+        for i in range(0, math.ceil(len(parameters)/batchsize)):
             # lifetime = how many seconds its available for workers until it is removed
             response = self.client.create_hit(MaxAssignments=workers_per_hit, LifetimeInSeconds=60 * 60 * 24 * 7,
                 AssignmentDurationInSeconds=process_time_in_s, Reward=reward, Title=title,
-                HITLayoutId="3Y5KTGTWK7O4WEXU4H5EDNH26UP5R9", HITLayoutParameters=parameters[i],
+                HITLayoutId="3Y5KTGTWK7O4WEXU4H5EDNH26UP5R9", HITLayoutParameters=parameters[i*batchsize:499+i*500],
                 Description=instructions, QualificationRequirements=worker_requirements)
-            print(f"Created HIT ({i+1}/{len(parameters)})")
 
             # # The response included several fields that will be helpful later
             # hit_type_id = response['HIT']['HITTypeId']
