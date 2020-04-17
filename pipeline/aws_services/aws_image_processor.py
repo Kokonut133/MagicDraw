@@ -59,26 +59,26 @@ class AWS_Imageprocessor:
         with open(parameter_file, "r") as fin:
             param_name= re.sub('[{}]', '', fin.readline().strip())
             for line in fin.read().splitlines()[1:]:
-                parameters.append({"Name": param_name, "Value": line})
+                parameters.append([{"Name": param_name, "Value": line}])
 
-        # split it into batches of 500 or else it wont accept it
-        for i in range(0, math.ceil(len(parameters)/400)):
+        for i in range(0, len(parameters)):
             # lifetime = how many seconds its available for workers until it is removed
             response = self.client.create_hit(MaxAssignments=workers_per_hit, LifetimeInSeconds=60 * 60 * 24 * 7,
                 AssignmentDurationInSeconds=process_time_in_s, Reward=reward, Title=title,
-                HITLayoutId="3Y5KTGTWK7O4WEXU4H5EDNH26UP5R9", HITLayoutParameters=parameters,
+                HITLayoutId="3Y5KTGTWK7O4WEXU4H5EDNH26UP5R9", HITLayoutParameters=parameters[i],
                 Description=instructions, QualificationRequirements=worker_requirements)
+            print(f"Created HIT ({i+1}/{len(parameters)})")
 
-            # The response included several fields that will be helpful later
-            hit_type_id = response['HIT']['HITTypeId']
-            hit_id = response['HIT']['HITId']
-            print(f"HIT No. {i} .")
-            print(f"Created HIT: {hit_id}")
-            print(f"You can work the HIT here: {self.preview}?groupId={hit_type_id}")
-            print(f"And see results here: {self.manage_url}")
+            # # The response included several fields that will be helpful later
+            # hit_type_id = response['HIT']['HITTypeId']
+            # hit_id = response['HIT']['HITId']
+            # hit_total=response['HIT']["NumberOfAssignmentsPending"]+response['HIT']["NumberOfAssignmentsAvailable"]+response['HIT']["NumberOfAssignmentsAvailable"]
+            # int_reward = int(reward.replace(".", ""))
+            # print(f"Created HIT: {hit_id} ; Total cost: {workers_per_hit*hit_total*int_reward} cents ; {i}/{hits_to_create}")
+            # print(f"You can work the HIT here: {self.preview}?groupId={hit_type_id}")
+            # print(f"And see results here: {self.manage_url}")
 
-        a=self.client.list_hits()
-        pass
+        self.print_current_HITs()
 
     def upload_folder_to_s3(self, bucket_name: str, local_dir: str):
         s3 = boto3.client(service_name='s3',
@@ -101,7 +101,7 @@ class AWS_Imageprocessor:
 
         # uploads
         for count, file in enumerate(new_files):
-            s3.upload_file(os.path.join(local_dir, file), bucket_name, file)
+            s3.upload_file(os.path.join(local_dir, file), bucket_name, file, ExtraArgs={'ACL': 'public-read'})
             print(f"Uploaded {file} to {bucket_name} ({count+1}/{len(new_files)}).")
 
         # creates csv
@@ -111,3 +111,16 @@ class AWS_Imageprocessor:
                 fout.write("image_name\n")
             for obj in response["Contents"]:
                 fout.write(obj["Key"]+"\n")
+
+    def print_current_HITs(self):
+        num_hits=self.client.list_hits()["NumResults"]
+        print(f"See results here: {self.manage_url}")
+        print(f"Currently {num_hits} HITs are online.")
+        for hit in self.client.list_hits()["HITs"]:
+            hit_id=hit["HITId"]
+            hit_title=hit["Title"]
+            hit_type_id=hit['HITTypeId']
+            hit_completed=hit["NumberOfAssignmentsAvailable"]
+            hit_total=hit["NumberOfAssignmentsPending"]+hit["NumberOfAssignmentsAvailable"]+hit_completed
+            int_reward=int(hit["Reward"].replace(".", ""))
+            print(f"Title: {hit_title} ; HITId: {hit_id} ; {self.preview}?groupId={hit_type_id}; ; Total cost: {hit_total*int_reward} cents ; ({hit_completed}/{hit_total})")

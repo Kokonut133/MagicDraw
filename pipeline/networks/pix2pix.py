@@ -160,7 +160,10 @@ class Pix2Pix:
             total_time = datetime.datetime.now() - start_time
 
             # trains both the first 30 mins and then only trains the generator when it learned more from the real images
-            if d_loss_real > d_loss_fake or total_time < datetime.timedelta(minutes=30):
+            # if d_loss_real > d_loss_fake or total_time < datetime.timedelta(minutes=30):
+            # if they learn less than 100 times as much from fake, it shows that D totally understands the fakes and G
+            # needs to become better
+            if d_loss_fake*100 < d_loss_real or total_time < datetime.timedelta(minutes=30):
                 g_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
                 g_loss = np.average(g_loss)
             else:

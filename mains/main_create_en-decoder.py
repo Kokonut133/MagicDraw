@@ -28,4 +28,4 @@ if __name__ == '__main__':
 
     # batch size 1 is recommended in the paper
     pix2pix = Pix2Pix(image_shape=(128, 128, 3), gpu_memory_friendly=True)
-    pix2pix.train(epochs=100000, batch_size=1, log_interval=100, sample_interval=1000, data_dir=processed_data_dir, generate_right=False, load_last_chkpt=True)
+    pix2pix.train(epochs=1000000, batch_size=1, log_interval=100, sample_interval=1000, data_dir=processed_data_dir, generate_right=False, load_last_chkpt=True)
