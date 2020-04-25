@@ -62,12 +62,16 @@ class AWS_Imageprocessor:
                 parameters.append({"Name": param_name, "Value": line})
 
         # split it into batches of 500 or else it wont accept it
-        batchsize=500
-        for i in range(0, math.ceil(len(parameters)/batchsize)):
+        if self.testing:
+            batch_size=500
+        else:
+            batch_size=len(parameters)
+        for i in range(0, math.ceil(len(parameters)/batch_size)):
             # lifetime = how many seconds its available for workers until it is removed
             response = self.client.create_hit(MaxAssignments=workers_per_hit, LifetimeInSeconds=60 * 60 * 24 * 7,
                 AssignmentDurationInSeconds=process_time_in_s, Reward=reward, Title=title,
-                HITLayoutId="3Y5KTGTWK7O4WEXU4H5EDNH26UP5R9", HITLayoutParameters=parameters[i*batchsize:499+i*500],
+                HITLayoutId="3VF340JIT0AEJ6NXNJF8HPFGD831G9", 
+                HITLayoutParameters=parameters[i*batch_size:batch_size-1+i*batch_size],
                 Description=instructions, QualificationRequirements=worker_requirements)
 
             # # The response included several fields that will be helpful later

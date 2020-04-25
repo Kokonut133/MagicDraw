@@ -21,7 +21,6 @@ if __name__ == '__main__':
     # visibility to all GPUs results in the same performance as forcing CUDA_visibility to Titan only
     list_available_gpus()
 
-
     data_dir = os.path.join(settings.dataset_dir, "pix2pix", "maps", "train")
     processed_data_dir = os.path.join(Path(data_dir).parent, "train_processed")
     dataset_normalizer.convert_to_tif(input_dir=data_dir, output_dir=processed_data_dir)    # kicked out normalization

@@ -63,7 +63,7 @@ class Pix2Pix:
         fake_A = self.generator(img_B)
         valid = self.discriminator([fake_A, img_B])
         self.combined = Model(inputs=[img_A, img_B], outputs=[valid, fake_A])
-        self.combined.compile(loss=['mse', 'mae'], optimizer="adam")
+        self.combined.compile(loss=['mse', 'mae'], loss_weights=[1, 100], optimizer="adam")
 
     # using only the generator with "mae" as loss seems to work better for segmenting pictures instead of the combination with the discriminator
     def build_generator(self, input_shape):
@@ -159,15 +159,15 @@ class Pix2Pix:
             d_time = datetime.datetime.now() - epoch_start_time
             total_time = datetime.datetime.now() - start_time
 
-            # trains both the first 30 mins and then only trains the generator when it learned more from the real images
-            # if d_loss_real > d_loss_fake or total_time < datetime.timedelta(minutes=30):
             # if they learn less than 100 times as much from fake, it shows that D totally understands the fakes and G
             # needs to become better
-            if d_loss_fake*100 < d_loss_real or total_time < datetime.timedelta(minutes=30):
-                g_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
-                g_loss = np.average(g_loss)
-            else:
-                g_loss = 0
+            # if d_loss_fake*100 < d_loss_real or total_time < datetime.timedelta(minutes=30):
+            # trains both the first 30 mins and then only trains the generator when it learned more from the real images
+            # if d_loss_real > d_loss_fake or total_time < datetime.timedelta(minutes=30):
+            g_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
+            g_loss = np.average(g_loss)
+            # else:
+            #     g_loss = 0
                 
             g_time = datetime.datetime.now() - epoch_start_time
 
