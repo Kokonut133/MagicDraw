@@ -12,7 +12,7 @@ void main() {
 
 class MagicDraw extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext contextcd) {
     return MaterialApp(
       title: 'MagicDraw',
       theme: ThemeData(
@@ -27,6 +27,7 @@ class MagicDraw extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Expanded(
+                flex: 9,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -37,9 +38,7 @@ class MagicDraw extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: <Widget>[
-                            Text('Left', textAlign: TextAlign.center),
-                            Text('Left', textAlign: TextAlign.center),
-                            Text('Left', textAlign: TextAlign.center),
+                            MainView(),
                           ],
                         ),
                       ),
@@ -61,14 +60,19 @@ class MagicDraw extends StatelessWidget {
                 ),
               ),
               Expanded(
+                flex:1,
                 child: Container(
-                  color: Colors.blue,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.blueAccent, width: 5)
+                  ),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: <Widget>[
-                      Text('Bottom', textAlign: TextAlign.center),
-                      Text('Bottom', textAlign: TextAlign.center),
-                      Text('Bottom', textAlign: TextAlign.center),
+                      Text('Realify it!', textAlign: TextAlign.center),
+                      IconButton(
+                        icon: Icon(Icons.arrow_forward_ios),
+                        tooltip: 'Creates a photorealistic version of the drawing.',
+                      ),
                     ],
                   ),
                 ),
@@ -85,6 +89,7 @@ class MainView extends StatefulWidget {
   @override
   _MainViewState createState() => _MainViewState();
 }
+
 
 class _MainViewState extends State<MainView> {
   List<Offset> _offsets = [];
