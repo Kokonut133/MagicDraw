@@ -12,7 +12,7 @@ void main() {
 
 class MagicDraw extends StatelessWidget {
   @override
-  Widget build(BuildContext contextcd) {
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MagicDraw',
       theme: ThemeData(
