@@ -1,7 +1,7 @@
 from google_images_download import google_images_download       # currently broken 4.2.2020
-import pipeline.data_gatherers.bing_scraper
+from pipeline.data_gatherers.bing_scraper import ImageDownloader
 from icrawler.builtin import GoogleImageCrawler                 # currently broken 4.2.2020
-from pipeline.data_gatherers.image_downloader import ImageDownloader    # urllib.error.URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>; cant fix it
+# from pipeline.data_gatherers.image_downloader import ImageDownloader    # urllib.error.URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>; cant fix it
 
 import os
 from PIL import Image
@@ -15,11 +15,12 @@ class ImagesetCreator():
     def __init__(self):
         pass
 
-    def create_image_dataset(self, keyword, height, width, amount):
-        path = os.path.join(settings.googled_dir, keyword)
-        os.makedirs(path, exist_ok=True)
-        self.download_images(keyword=keyword, path=path, amount=amount)
-
-    def download_images(self, keyword, path, amount):
+    def create_image_dataset(self, keyword, size, amount, height=None, width=None):
+        output_dir = settings.googled_dir
+        os.makedirs(output_dir, exist_ok=True)
         image_downloader = ImageDownloader()
-        image_downloader.get_google_images(keyword=keyword, path=path, amount=amount)
+        if height and width:
+            exact_size = str(height)+","+str(width)
+            image_downloader.download_from_bing(keyword=keyword, output_dir=output_dir, amount=amount, exact_size=exact_size, chromedriver="D:\code\PycharmProjects\magic_draw\pipeline\data_gatherers\chromedriver.exe")
+        else:
+            image_downloader.download_from_bing(keyword=keyword, output_dir=output_dir, amount=amount, size=size, chromedriver="D:\code\PycharmProjects\magic_draw\pipeline\data_gatherers\chromedriver.exe")
