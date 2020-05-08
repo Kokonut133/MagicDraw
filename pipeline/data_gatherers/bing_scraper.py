@@ -2,6 +2,7 @@
 # Originally from https://github.com/hardikvasa/google-images-download
 # Updated by Evan Sellers <sellersew@gmail.com> Feb 2020 for bing search with url only
 # Updated by glenn.jocher@gmail.com Feb 2020, requires python 3
+# Updated by christianstur@gmail.com April 2020, more compatible with broader access to internal parameters
 
 # python3 bing_scraper.py --url 'https://www.bing.com/images/search?q=flowers' --limit 10 --chromedriver /Users/glennjocher/Downloads/chromedriver
 # python3 bing_scraper.py --search 'honeybees on flowers' --limit 10 --chromedriver /Users/glennjocher/Downloads/chromedriver
@@ -10,6 +11,7 @@
 import argparse
 import codecs
 import datetime
+import glob
 import html
 import http.client
 import json
@@ -27,6 +29,8 @@ from urllib.request import URLError, HTTPError
 
 from tqdm import tqdm
 
+import settings
+
 http.client._MAXHEADERS = 1000
 
 args_list = ["keywords", "keywords_from_file", "prefix_keywords", "suffix_keywords",
@@ -41,7 +45,7 @@ class ImageDownloader:
     def __init__(self):
         pass
 
-    def user_input(self, keyword, output_dir, amount, chromedriver, exact_size=None, size=None):
+    def user_input(self, keyword, image_dir, amount, chromedriver, prefix, exact_size=None, size=None):
         config = argparse.ArgumentParser()
         config.add_argument('-cf', '--config_file', help='config file name', default='', type=str, required=False)
         config_file_check = config.parse_known_args()
@@ -118,7 +122,7 @@ class ImageDownloader:
                                 type=str, required=False)
             parser.add_argument('-p', '--print_urls', default=True, help="Print the URLs of the images",
                                 action="store_true")
-            parser.add_argument('-ps', '--print_size', default=True, help="Print the size of the images on disk",
+            parser.add_argument('-ps', '--print_size', default=False, help="Print the size of the images on disk",
                                 action="store_true")
             parser.add_argument('-pp', '--print_paths', default=True,
                                 help="Prints the list of absolute paths of the images", action="store_true")
@@ -179,7 +183,8 @@ class ImageDownloader:
 
             arguments = vars(args)
             arguments["keywords"] = keyword
-            arguments["output_directory"] = output_dir
+            arguments["output_directory"] = settings.img_dir
+            arguments["image_directory"] = image_dir
             arguments["size"] = size
             arguments["chromedriver"] = chromedriver
             arguments["limit"] = amount
@@ -527,7 +532,7 @@ class ImageDownloader:
         return
 
     # Download Images
-    def download_image(self, image_url, image_format, main_directory, dir_name, count, print_urls, socket_timeout,
+    def download_image(self, keyword, image_url, image_format, main_directory, dir_name, count, print_urls, socket_timeout,
                        prefix, print_size, no_numbering, download, save_source, img_src, silent_mode,
                        format, ignore_urls):
         download_message = ''
@@ -589,14 +594,20 @@ class ImageDownloader:
                     path = main_directory + "/" + dir_name + "/" + prefix + str(count) + "." + image_name
 
                 try:
-                    output_file = open(path, 'wb')
-                    output_file.write(data)
-                    output_file.close()
-                    if save_source:
-                        list_path = main_directory + "/" + save_source + ".txt"
-                        list_file = open(list_path, 'a')
-                        list_file.write(path + '\t' + img_src + '\n')
-                        list_file.close()
+                    # output_file = open(path, 'wb')
+                    path = os.path.split(path)[0]
+                    path = os.path.join(path, keyword + str(count) + ".png")           # everything gets named .png
+                    if os.path.exists(path=path):
+                        download_message = "Got already! " + keyword + '%s %s' % (image_url, download_message)
+                    else:
+                        output_file = open(path, 'wb')
+                        output_file.write(data)
+                        output_file.close()
+                        if save_source:
+                            list_path = main_directory + "/" + save_source + ".txt"
+                            list_file = open(list_path, 'a')
+                            list_file.write(path + '\t' + img_src + '\n')
+                            list_file.close()
                     absolute_path = os.path.abspath(path)
                 except OSError as e:
                     download_status = 'fail'
@@ -606,7 +617,7 @@ class ImageDownloader:
 
                 # return image name back to calling method to use it for thumbnail downloads
                 download_status = 'success'
-                download_message = '%s %s' % (image_url, download_message)
+                download_message = keyword + '%s %s' % (image_url, download_message)
                 return_image_name = prefix + str(count) + "." + image_name
 
                 # image size parameter
@@ -711,8 +722,8 @@ class ImageDownloader:
 
                 # download the images
                 download_status, download_message, return_image_name, absolute_path = self.download_image(
-                    object['image_link'], object['image_format'], main_directory, dir_name, count,
-                    arguments['print_urls'], arguments['socket_timeout'], arguments['prefix'], arguments['print_size'],
+                    arguments['keywords'], object['image_link'], object['image_format'], main_directory, dir_name,
+                    count, arguments['print_urls'], arguments['socket_timeout'], arguments['prefix'], arguments['print_size'],
                     arguments['no_numbering'], arguments['download'], arguments['save_source'],
                     object['image_source'], arguments["silent_mode"], arguments['format'],
                     arguments['ignore_urls'])
@@ -888,51 +899,56 @@ class ImageDownloader:
                     if limit < 1:  # if limit < 101
                         raw_html = self.download_page(url)  # download page
                     else:
-                        raw_html = self.download_extended_page(url, arguments['chromedriver'])
+                        amount_already = len(glob.glob(os.path.join(settings.img_dir, arguments["image_directory"], arguments["keywords"]+'*')))
+                        if amount_already != arguments["limit"]:
+                            raw_html = self.download_extended_page(url, arguments['chromedriver'])
 
-                    if not arguments["silent_mode"]:
-                        if arguments['download']:
-                            print('Downloading images...')
-                    items, errorCount, abs_path = self._get_all_items(raw_html, main_directory, dir_name, limit,
-                                                                      arguments)  # get all image items and download images
-                    paths[pky + search_keyword[i] + sky] = abs_path
+                            if not arguments["silent_mode"]:
+                                if arguments['download']:
+                                    print('Downloading images...')
+                            items, errorCount, abs_path = self._get_all_items(raw_html, main_directory, dir_name, limit,
+                                                                              arguments)  # get all image items and download images
+                            paths[pky + search_keyword[i] + sky] = abs_path
 
-                    # dumps into a json file
-                    if arguments['extract_metadata']:
-                        try:
-                            if not os.path.exists("logs"):
-                                os.makedirs("logs")
-                        except OSError as e:
-                            print(e)
-                        json_file = open("logs/" + search_keyword[i] + ".json", "w")
-                        json.dump(items, json_file, indent=4, sort_keys=True)
-                        json_file.close()
+                            # dumps into a json file
+                            if arguments['extract_metadata']:
+                                try:
+                                    if not os.path.exists("logs"):
+                                        os.makedirs("logs")
+                                except OSError as e:
+                                    print(e)
+                                json_file = open("logs/" + search_keyword[i] + ".json", "w")
+                                json.dump(items, json_file, indent=4, sort_keys=True)
+                                json_file.close()
 
-                    # Related images
-                    if arguments['related_images']:
-                        print("\nGetting list of related keywords...this may take a few moments")
-                        tabs = self.get_all_tabs(raw_html)
-                        for key, value in tabs.items():
-                            final_search_term = (search_term + " - " + key)
-                            print("\nNow Downloading - " + final_search_term)
-                            if limit < 1:  # if limit < 101:
-                                new_raw_html = self.download_page(value)  # download page
-                            else:
-                                new_raw_html = self.download_extended_page(value, arguments['chromedriver'])
-                            self.create_directories(main_directory, final_search_term)
-                            self._get_all_items(new_raw_html, main_directory, search_term + " - " + key, limit,
-                                                arguments)
+                            # Related images
+                            if arguments['related_images']:
+                                print("\nGetting list of related keywords...this may take a few moments")
+                                tabs = self.get_all_tabs(raw_html)
+                                for key, value in tabs.items():
+                                    final_search_term = (search_term + " - " + key)
+                                    print("\nNow Downloading - " + final_search_term)
+                                    if limit < 1:  # if limit < 101:
+                                        new_raw_html = self.download_page(value)  # download page
+                                    else:
+                                        new_raw_html = self.download_extended_page(value, arguments['chromedriver'])
+                                    self.create_directories(main_directory, final_search_term)
+                                    self._get_all_items(new_raw_html, main_directory, search_term + " - " + key, limit,
+                                                        arguments)
 
-                    i += 1
-                    total_errors = total_errors + errorCount
-        return paths, total_errors
+                            i += 1
+                            total_errors = total_errors + errorCount
+                            return paths, total_errors
+                        else:
+                            keywords=arguments["keywords"]
+                            print(f"Downloaded already {amount_already} for {keywords}.")
+                            return {}, 0
 
-
-    def download_from_bing(self, keyword, output_dir, amount, chromedriver, size=None, exact_size=None):
+    def download_from_bing(self, keyword, image_dir, amount, chromedriver, prefix, size=None, exact_size=None):
         if size is None:
-            records = self.user_input(keyword, output_dir, amount, chromedriver, exact_size=exact_size)
+            records = self.user_input(keyword, image_dir, amount, chromedriver, prefix=prefix, exact_size=exact_size)
         else:
-            records = self.user_input(keyword, output_dir, amount, chromedriver, size=size)
+            records = self.user_input(keyword, image_dir, amount, chromedriver, prefix=prefix, size=size)
         total_errors = 0
         t0 = time.time()  # start the timer
         for arguments in records:

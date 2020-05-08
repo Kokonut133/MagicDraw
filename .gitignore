@@ -1,1 +1,5 @@
 resources
+aws_keys
+*aws_keys*
+*.pyc
+*pycache*

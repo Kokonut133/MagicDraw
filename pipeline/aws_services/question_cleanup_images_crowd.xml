@@ -1,0 +1,24 @@
+<script src="https://assets.crowd.aws/crowd-html-elements.js"></script>
+<crowd-form answer-format="flatten-objects">
+  <crowd-image-classifier
+    src="https://landscapemix0.s3-eu-west-1.amazonaws.com/${image_name}"
+    categories="['Yes', 'No', 'Cannot Determine']"
+    header="Does the image contain ${image_name}"
+    name="image-contains">
+
+    <short-instructions>
+    </short-instructions>
+
+    <full-instructions header="Does this image contain a ${image_name}?">
+        <h2>Detailed instructions</h2>
+        <p>Instructions for determining if the image contains the object:</p>
+        <ol>
+        <li>Determine if the object of interest occurs in the image</li>
+        <li>If it the object exists in the image, select that option; otherwise, indicate it does not</li>
+        <li>Ignore the number and .png</li>
+        </ol>
+    </full-instructions>
+  </crowd-image-classifier>
+</crowd-form>
+
+<!--LayoutID "3VF340JIT0AEJ6NXNJF8HPFGD831G9"-->

@@ -18,13 +18,18 @@ from keras.layers import Input, Concatenate
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Conv2D, Conv2DTranspose
 from keras.models import Model
+
+from pipeline.networks import network_handler
+from pipeline.networks.network_handler import Network_handler
 from pipeline.processors.trainers.memory_saving_checkpoints_tf2 import checkpointable
 from keras.backend import tensorflow_backend, set_session
+from pipeline.normalization.SpectralNormalizationKeras import DenseSN, ConvSN1D, ConvSN2D, ConvSN3D
+
 
 import settings
 
 
-__author__="cstur"
+__author__ = "cstur"
 
 
 # discriminator outputs 1 if its a real pair
@@ -58,40 +63,23 @@ class Pix2Pix:
         fake_A = self.generator(img_B)
         valid = self.discriminator([fake_A, img_B])
         self.combined = Model(inputs=[img_A, img_B], outputs=[valid, fake_A])
-        self.combined.compile(loss=['mse', 'mae'], optimizer="adam")
+        self.combined.compile(loss=['mse', 'mae'], loss_weights=[1, 100], optimizer="adam")
 
     # using only the generator with "mae" as loss seems to work better for segmenting pictures instead of the combination with the discriminator
     def build_generator(self, input_shape):
-        if self.gpu_memory_friendly:
-            @checkpointable
-            def conv2d(input, filters, batch_norm, k_size=4, _checkpoint=True):
-                d = Conv2D(filters, kernel_size=k_size, strides=2, padding="same", activation="relu")(input)
-                d = LeakyReLU(alpha=0.2)(d)
-                if batch_norm:
-                    d = BatchNormalization(momentum=0.8)(d)
-                return d
+        def conv2d(input, filters, batch_norm, k_size=4):
+            d = Conv2D(filters, kernel_size=k_size, strides=2, padding="same")(input)
+            d = LeakyReLU(alpha=0.2)(d)
+            if batch_norm:
+                d = BatchNormalization(momentum=0.8)(d)
+            return d
 
-            @checkpointable
-            def deconv2d(input, filters, skip_input, k_size=4, _checkpoint=True):
-                u = UpSampling2D(size=2)(input)
-                u = Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u)
-                u = BatchNormalization(momentum=0.8)(u)
-                u = Concatenate()([u, skip_input])
-                return u
-        else:
-            def conv2d(input, filters, batch_norm, k_size=4):
-                d = Conv2D(filters, kernel_size=k_size, strides=2, padding="same")(input)
-                d = LeakyReLU(alpha=0.2)(d)
-                if batch_norm:
-                    d = BatchNormalization(momentum=0.8)(d)
-                return d
-
-            def deconv2d(input, filters, skip_input, k_size=4):
-                u = UpSampling2D(size=2)(input)
-                u = Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u)
-                u = BatchNormalization(momentum=0.8)(u)
-                u = Concatenate()([u, skip_input])
-                return u
+        def deconv2d(input, filters, skip_input, k_size=4):
+            u = UpSampling2D(size=2)(input)
+            u = Conv2D(filters, kernel_size=k_size, strides=1, padding="same", activation="relu")(u)
+            u = BatchNormalization(momentum=0.8)(u)
+            u = Concatenate()([u, skip_input])
+            return u
 
         input = Input(shape=input_shape)
         n = input_shape[0]
@@ -101,12 +89,12 @@ class Pix2Pix:
         d3 = conv2d(input=d2, filters=n * 4, batch_norm=True)
         d4 = conv2d(input=d3, filters=n * 8, batch_norm=True)
         d5 = conv2d(input=d4, filters=n * 8, batch_norm=True)
-        # d6 = conv2d(input=d5, filters=n * 8, batch_norm=True)     # memory issues
+        d6 = conv2d(input=d5, filters=n * 8, batch_norm=True)
 
-        d7 = conv2d(input=d5, filters=n * 8, batch_norm=True)
+        d7 = conv2d(input=d6, filters=n * 8, batch_norm=True)
 
-        # u1 = deconv2d(input=d7, filters=n * 8, skip_input=d6)
-        u2 = deconv2d(input=d7, filters=n * 8, skip_input=d5)
+        u1 = deconv2d(input=d7, filters=n * 8, skip_input=d6)
+        u2 = deconv2d(input=u1, filters=n * 8, skip_input=d5)
         u3 = deconv2d(input=u2, filters=n * 8, skip_input=d4)
         u4 = deconv2d(input=u3, filters=n * 4, skip_input=d3)
         u5 = deconv2d(input=u4, filters=n * 2, skip_input=d2)
@@ -114,26 +102,15 @@ class Pix2Pix:
 
         output_img = Conv2DTranspose(filters=3, kernel_size=4, strides=2, padding='same', activation="sigmoid")(u6)
 
-        layers = [d1, d2, d3, d4, d5, d7, u2, u3, u4, u5, u6]
-        watch = [v for layer in layers for v in layer.trainable_variables]  # delete if want to run
-        return Model(input, output_img, _watch_vars=watch)
+        return Model(input, output_img)
 
     def build_discriminator(self, input_shape):
-        if self.gpu_memory_friendly:
-            @checkpointable
-            def discriminator_layer(input, filters, batch_norm, f_size=4, _checkpoint=True):
-                d = Conv2D(filters, kernel_size=f_size, strides=2, padding="same", activation="relu")(input)
-                d = LeakyReLU(alpha=0.2)(d)
-                if batch_norm:
-                    d = BatchNormalization(momentum=0.8)(d)
-                return d
-        else:
-            def discriminator_layer(input, filters, batch_norm, f_size=4):
-                d = Conv2D(filters, kernel_size=f_size, strides=2, padding="same", activation="relu")(input)
-                d = LeakyReLU(alpha=0.2)(d)
-                if batch_norm:
-                    d = BatchNormalization(momentum=0.8)(d)
-                return d
+        def discriminator_layer(input, filters, batch_norm, f_size=4):
+            d = Conv2D(filters, kernel_size=f_size, strides=2, padding="same", activation="relu")(input)
+            d = LeakyReLU(alpha=0.2)(d)
+            if batch_norm:
+                d = BatchNormalization(momentum=0.8)(d)
+            return d
 
         img_A = Input(shape=input_shape)
         img_B = Input(shape=input_shape)
@@ -149,44 +126,21 @@ class Pix2Pix:
 
         validity = Conv2D(1, kernel_size=4, strides=1, padding="same")(d4)
 
-        layers = [d1, d2, d3, d4]
-        watch = [v for layer in layers for v in layer.graph.trainable_variables]
         return Model([img_A, img_B], validity)
 
-    def train(self, epochs, data_dir, load_last_chkpt=False, generate_right=False, batch_size=5, sample_interval=1000):
-        result_dir = os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem,
-                                  str(datetime.datetime.today().strftime("%Y-%m-%d-%H-%M-%S")))
-        os.makedirs(result_dir, exist_ok=True)
-        checkpoint_path = os.path.join(result_dir, "checkpoints")
-        os.makedirs(checkpoint_path, exist_ok=True)
-        logging.basicConfig(filename=os.path.join(result_dir, "log.txt"), level=logging.INFO, filemode="w")
+    def train(self, epochs, data_dir, load_last_chkpt=False, generate_right=False, batch_size=5, log_interval=100, sample_interval=10000):
+        checkpoint_path, result_dir=Network_handler.create_result_dir(data_dir=data_dir)
 
         start_iter = 0
         snapshot_count = 1
 
         if load_last_chkpt:
-            list_of_folders = os.listdir(os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem))
-            potential_folders = []
-            for folder in list_of_folders:  # remove with no checkpoints
-                if len(os.listdir(os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem, folder,
-                                               "checkpoints"))) != 0:
-                    potential_folders.append(folder)
-            if not potential_folders:
-                print("No previous weights found!")
-            latest_folder = max([datetime.datetime.strptime(i, "%Y-%m-%d-%H-%M-%S") for i in potential_folders])
-            goal_folder = os.path.join(settings.result_dir, "pix2pix", Path(data_dir).parent.stem,
-                                       latest_folder.strftime("%Y-%m-%d-%H-%M-%S"), "checkpoints")
-            discriminator_path = max(
-                [os.path.join(goal_folder, d) for d in os.listdir(goal_folder) if "discriminator" in d],
-                key=os.path.getctime)
-            generator_path = max([os.path.join(goal_folder, d) for d in os.listdir(goal_folder) if "generator" in d],
-                                 key=os.path.getctime)
+            discriminator_path, generator_path=Network_handler.get_d_g_paths(data_dir=data_dir)
             self.discriminator.load_weights(discriminator_path)
             self.generator.load_weights(generator_path)
             start_iter = int(re.sub('[^0-9]', '', discriminator_path[-5:]))
-            print(
-                "Loaded weights " + os.path.basename(discriminator_path) + " and " + os.path.basename(generator_path) +
-                " from " + os.path.basename(os.path.dirname(goal_folder)))
+            print("Loaded weights " + os.path.basename(discriminator_path) + " and " + os.path.basename(generator_path)
+                  + " from " + os.path.basename(os.path.dirname(os.path.dirname(discriminator_path))))
 
         real = np.ones((batch_size,) + self.disc_patch)
         fake = np.zeros((batch_size,) + self.disc_patch)
@@ -194,40 +148,45 @@ class Pix2Pix:
         data_generator = self.load_batch(data_dir=data_dir, batch_size=batch_size, generate_right=generate_right)
         start_time = datetime.datetime.now()
         for epoch in range(start_iter, epochs):
+            epoch_start_time = datetime.datetime.now()
             imgs_A, imgs_B = next(data_generator)  # abstraction A, realistic B
             fake_Bs = np.float64(self.generator.predict(imgs_A))
 
-            discriminator_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], real)
-            discriminator_loss_fake = self.discriminator.train_on_batch([imgs_A, fake_Bs], fake)
-            discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
+            d_loss_real = self.discriminator.train_on_batch([imgs_A, imgs_B], real)
+            d_loss_fake = self.discriminator.train_on_batch([imgs_A, fake_Bs], fake)
+            d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
-            elapsed_time = datetime.datetime.now() - start_time
+            d_time = datetime.datetime.now() - epoch_start_time
+            total_time = datetime.datetime.now() - start_time
 
-            # if the discriminator learns more from real examples, improve the generator\
+            # if they learn less than 100 times as much from fake, it shows that D totally understands the fakes and G
+            # needs to become better
+            # if d_loss_fake*100 < d_loss_real or total_time < datetime.timedelta(minutes=30):
             # trains both the first 30 mins and then only trains the generator when it learned more from the real images
-            if discriminator_loss_real > discriminator_loss_fake or elapsed_time < datetime.timedelta(minutes=30):
-                # generator_loss = self.generator.train_on_batch(x=imgs_A, y=imgs_B)
-                generator_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
-                generator_loss = np.average(generator_loss)
-            else:
-                generator_loss = 0
+            # if d_loss_real > d_loss_fake or total_time < datetime.timedelta(minutes=30):
+            g_loss = self.combined.train_on_batch([imgs_A, imgs_B], [real, imgs_A])
+            g_loss = np.average(g_loss)
+            # else:
+            #     g_loss = 0
+                
+            g_time = datetime.datetime.now() - epoch_start_time
 
             # visualization
-            if epoch % sample_interval == 0:
-                if elapsed_time > datetime.timedelta(hours=0, minutes=30) * snapshot_count or epoch == epochs:
+            if epoch % log_interval == 0:
+                if total_time > datetime.timedelta(hours=0, minutes=30) * snapshot_count or epoch == epochs:
                     snapshot_count += 1
                     self.discriminator.save(os.path.join(checkpoint_path, "discriminator" + str(epoch)))
                     self.generator.save(os.path.join(checkpoint_path, "generator" + str(epoch)))
                     print("Saved model at " + str(epoch) + " epochs model.")
 
-                # logging.info("[Epoch %d/%d] [G loss: %f] time: %s", epoch, epochs, generator_loss, str(elapsed_time))
-                # print("[Epoch %d/%d] [G loss: %f] time: %s" % (epoch, epochs, generator_loss, str(elapsed_time)))
-                elapsed_time = datetime.datetime.now() - start_time
-                logging.info("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s",
-                             epoch, epochs, discriminator_loss_real, discriminator_loss_fake, generator_loss, str(elapsed_time))
-                print("[Epoch %d/%d] [D loss real: %f; fake: %f; total: %f] [G loss: %f] time: %s" %
-                    (epoch, epochs, discriminator_loss_real, discriminator_loss_fake, discriminator_loss, generator_loss, str(elapsed_time)))
+                total_time = datetime.datetime.now() - start_time
+                logging.info("[Epoch %d/%d] [D loss real: %f; fake: %f] [G loss: %f] time: %s", epoch, epochs,
+                    d_loss_real, d_loss_fake, g_loss, str(total_time))
+                print(f"[Epoch {epoch}/{epochs}] [G loss: {g_loss:.5f}] "
+                      f"[D loss real: {d_loss_real:.5f}; fake:{d_loss_fake:.5f}; total: {d_loss:.5f}]"
+                      f" [G time: {g_time}; D time: {d_time}; total time: {total_time}]")
 
+            if epoch% sample_interval==0:
                 gen_imgs = [imgs_B, imgs_A, fake_Bs]
 
                 titles = ["Condition", "Original", "Generated"]
