@@ -1,4 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 void main() {
   runApp(new MaterialApp(
@@ -6,6 +12,11 @@ void main() {
     )
   ); 
 }
+
+const canvas_width = 400.0;
+const canvas_height = 400.0;
+
+// MediaQuery.of(context).size.height / 2;
 
 class MagicDrawApp extends StatelessWidget {
   @override
@@ -18,7 +29,7 @@ class MagicDrawApp extends StatelessWidget {
             Expanded(
               flex:9,
               child: Container(
-                color: Colors.yellow[50],
+                //color: Colors.yellow[50],
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -31,7 +42,9 @@ class MagicDrawApp extends StatelessWidget {
                           children: [
                             FittedBox(
                               child: SizedBox(
-                                child: My_custom_painter_page(),
+                                child: ClipRect(
+                                  child:My_custom_painter_page(),
+                                )
                               ),
                             )]
                         ),
@@ -42,8 +55,8 @@ class MagicDrawApp extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          new Text("asdassdfsdfda")
-                        ],)
+                          Real_image_generator()]
+                      )
                     )]
                 ),
               )
@@ -53,8 +66,7 @@ class MagicDrawApp extends StatelessWidget {
               child: Container(
                 color: Colors.blue,
                 child: IconButton(
-                  icon: Icon(Icons.arrow_forward_ios), 
-                  onPressed: () {  },
+                  icon: Icon(Icons.arrow_forward_ios),
                 ),
               ),
             ),
@@ -106,8 +118,8 @@ class _My_custom_painter_page extends State<My_custom_painter_page> {
             decoration: BoxDecoration(
               border: Border.all(),
               color: Colors.white),
-            width: MediaQuery.of(context).size.width / 2,
-            height: MediaQuery.of(context).size.height / 2,
+            width: canvas_width,
+            height: canvas_height,
           ),
           CustomPaint(
             painter: My_custom_painter(
@@ -150,4 +162,64 @@ class My_custom_painter extends CustomPainter {
   bool shouldRepaint(CustomPainter oldDelegate) {
     return true;
   }
+}
+
+class Real_image_generator extends StatefulWidget {
+  @override
+  State<StatefulWidget> createState() => _Real_image_generator_state();
+  }
+  
+class _Real_image_generator_state extends State<Real_image_generator>{
+  ByteData imgBytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize:  MainAxisSize.max,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          imgBytes != null ? Center(
+            child: Image.memory(
+              Uint8List.view(imgBytes.buffer),
+              width: canvas_width,
+              height: canvas_height,
+            ))
+          : Container(child:Text("asdasdas")),
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: RaisedButton(
+                child: Text('Generate image'), onPressed: generate_image),
+          ),
+        ]
+      )
+    );
+  }
+
+  void generate_image() async {
+    final color = Colors.pink;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder,
+      Rect.fromPoints(Offset(0.0,0.0), Offset(canvas_width, canvas_height)));
+    
+    final stroke = Paint()
+      ..color = Colors.grey
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(Rect.fromLTWH(0.0, 0.0, 50, 50), stroke);
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(50, 50), 20.0, paint);
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(200, 200);
+    final pngBytes = await img.toByteData(format: ImageByteFormat.png);
+
+    setState(() {
+      imgBytes = pngBytes;
+    });
+  }
+  
 }
