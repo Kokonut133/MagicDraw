@@ -5,6 +5,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:image/image.dart' as img;
 
 void main() {
   runApp(new MaterialApp(
@@ -35,10 +36,9 @@ class MagicDrawApp extends StatelessWidget {
                   children: [
                     Expanded(
                       flex: 5,
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Column(
+                      child: Column(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             FittedBox(
                               child: SizedBox(
@@ -47,7 +47,6 @@ class MagicDrawApp extends StatelessWidget {
                                 )
                               ),
                             )]
-                        ),
                       )
                     ),
                     Expanded(
@@ -124,7 +123,7 @@ class _My_custom_painter_page extends State<My_custom_painter_page> {
           CustomPaint(
             painter: My_custom_painter(
                 offsets: _offsets, colors: _colors, brushSizes: _brushSizes),
-            size: Size.square(MediaQuery.of(context).size.width / 2)
+            size: Size.square(canvas_width)
           ),
         ],
       )
@@ -214,8 +213,9 @@ class _Real_image_generator_state extends State<Real_image_generator>{
     canvas.drawCircle(Offset(50, 50), 20.0, paint);
 
     final picture = recorder.endRecording();
-    final img = await picture.toImage(200, 200);
-    final pngBytes = await img.toByteData(format: ImageByteFormat.png);
+    final my_img = await picture.toImage(canvas_width.toInt(), canvas_height.toInt());
+    //final pngBytes = Image.memory(img.encodePng(my_img))
+    final pngBytes = await my_img.toByteData(format: ImageByteFormat.png);
 
     setState(() {
       imgBytes = pngBytes;
